@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const useSsl = (process.env.DB_SSL || '').toLowerCase() === 'true';
+
 const sequelize = new Sequelize({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
@@ -21,7 +23,15 @@ const sequelize = new Sequelize({
     timestamps: true,
     underscored: true,
     freezeTableName: true
-  }
+  },
+  dialectOptions: useSsl
+    ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: true
+        }
+      }
+    : {}
 });
 
 export default sequelize;
