@@ -20,7 +20,11 @@ export const config = {
   },
   
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+    origin: (() => {
+      const origin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+      // Normalizar: remover barra final si existe
+      return origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    })()
   },
   
   rateLimit: {
