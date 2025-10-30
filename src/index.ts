@@ -4,10 +4,12 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import { config } from './config';
 import routes from './routes';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import sequelize from './config/database';
+import Usuario from './models/Usuario';
 
 const app = express();
 
@@ -64,6 +66,30 @@ app.use('/api', routes);
 app.use(notFound);
 app.use(errorHandler);
 
+// Crear usuario admin si no existe
+const ensureAdminUser = async () => {
+  try {
+    const adminUser = await Usuario.findOne({ where: { nombre_usuario: 'admin' } });
+    
+    if (!adminUser) {
+      const hashedPassword = crypto.createHash('sha256').update('admin123').digest('hex');
+      await Usuario.create({
+        nombre_usuario: 'admin',
+        contrasena: hashedPassword,
+        nombre_completo: 'Administrador del Sistema',
+        email: 'admin@miempresa.com',
+        rol: 'ADMINISTRADOR',
+        activo: true
+      });
+      console.log('✅ Usuario admin creado (admin/admin123)');
+    } else {
+      console.log('✅ Usuario admin ya existe');
+    }
+  } catch (error) {
+    console.error('⚠️ Error al crear usuario admin:', error);
+  }
+};
+
 // Inicializar servidor
 const startServer = async () => {
   try {
@@ -76,6 +102,9 @@ const startServer = async () => {
       await sequelize.sync({ force: false, alter: false });
       console.log('✅ Modelos sincronizados');
     }
+
+    // Crear usuario admin si no existe
+    await ensureAdminUser();
 
     // Iniciar servidor
     app.listen(config.port, () => {
