@@ -39,13 +39,13 @@ const createVentaSchema = Joi.object({
   total: Joi.number().min(0).optional(),
   metodo_pago: Joi.string().valid('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE').optional(),
   estado: Joi.string().valid('PENDIENTE', 'COMPLETADA', 'CANCELADA').optional(),
-  observaciones: Joi.string().optional(),
+  observaciones: Joi.string().allow('', null).optional(),
   detalles: Joi.array().items(detalleVentaSchema).min(1).required()
 });
 
 const updateVentaSchema = Joi.object({
   estado: Joi.string().valid('PENDIENTE', 'COMPLETADA', 'CANCELADA').optional(),
-  observaciones: Joi.string().optional(),
+  observaciones: Joi.string().allow('', null).optional(),
   metodo_pago: Joi.string().valid('EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'CHEQUE').optional()
 });
 
