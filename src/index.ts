@@ -29,14 +29,13 @@ app.use(cors({
 }));
 
 // Rate limiting
+// El rate limiter usa automáticamente el trust proxy de Express
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
   message: 'Demasiadas solicitudes desde esta IP',
-  // Configurar para Railway con trust proxy
   standardHeaders: true,
-  legacyHeaders: false,
-  trustProxy: true
+  legacyHeaders: false
 });
 app.use(limiter);
 
