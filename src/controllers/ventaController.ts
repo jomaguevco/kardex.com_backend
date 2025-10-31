@@ -169,8 +169,11 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
 
       detallesVenta.push(detalleVenta);
 
+      // Guardar stock anterior antes de actualizar
+      const stockAnterior = producto.stock_actual;
+      const nuevoStock = stockAnterior - detalle.cantidad;
+      
       // Actualizar stock del producto
-      const nuevoStock = producto.stock_actual - detalle.cantidad;
       await producto.update({ stock_actual: nuevoStock }, { transaction });
 
       // Crear movimiento en KARDEX
@@ -182,7 +185,7 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
         cantidad: detalle.cantidad,
         precio_unitario: detalle.precio_unitario,
         costo_total: detalle.cantidad * producto.costo_promedio,
-        stock_anterior: producto.stock_actual,
+        stock_anterior: stockAnterior,
         stock_nuevo: nuevoStock,
         documento_referencia: 'VENTA',
         numero_documento: numeroFactura,
