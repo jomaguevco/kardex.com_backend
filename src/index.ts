@@ -14,6 +14,9 @@ import { seedInitialData } from './scripts/seedInitialData';
 
 const app = express();
 
+// Configurar trust proxy para Railway (necesario para rate limiting)
+app.set('trust proxy', true);
+
 // Middleware de seguridad
 app.use(helmet());
 app.use(compression());

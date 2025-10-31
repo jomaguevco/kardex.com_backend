@@ -171,7 +171,7 @@ export const createProducto = async (req: Request, res: Response): Promise<void>
       volumen: volumen || 0,
       dimensiones,
       tiene_caducidad: tiene_caducidad || false,
-      dias_caducidad: dias_caducidad || null
+      dias_caducidad: dias_caducidad !== undefined ? dias_caducidad : (tiene_caducidad ? 0 : null)
     });
 
     res.status(201).json({
