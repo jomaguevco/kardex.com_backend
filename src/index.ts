@@ -98,11 +98,10 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('✅ Conexión a la base de datos establecida');
 
-    // Sincronizar modelos (solo en desarrollo)
-    if (config.nodeEnv === 'development') {
-      await sequelize.sync({ force: false, alter: false });
-      console.log('✅ Modelos sincronizados');
-    }
+    // Sincronizar modelos (crear tablas si no existen)
+    // En producción solo crea las tablas, no las modifica ni borra
+    await sequelize.sync({ force: false, alter: false });
+    console.log('✅ Modelos sincronizados (tablas verificadas)');
 
     // Crear usuario admin si no existe
     await ensureAdminUser();

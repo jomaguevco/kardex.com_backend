@@ -4,6 +4,7 @@ import Categoria from '../models/Categoria';
 import Marca from '../models/Marca';
 import UnidadMedida from '../models/UnidadMedida';
 import Almacen from '../models/Almacen';
+import TipoMovimientoKardex from '../models/TipoMovimientoKardex';
 import crypto from 'crypto';
 
 export const seedInitialData = async () => {
@@ -96,6 +97,50 @@ export const seedInitialData = async () => {
         nombre: 'ALMACÉN SUCURSAL',
         direccion: 'Jr. Comercio 250, Lima',
         responsable: 'Ana Torres',
+        activo: true
+      }
+    ], { ignoreDuplicates: true });
+
+    // Tipos de movimiento KARDEX
+    await TipoMovimientoKardex.bulkCreate([
+      {
+        codigo: 'ENTRADA_COMPRA',
+        nombre: 'Entrada por Compra',
+        descripcion: 'Ingreso de productos por compra a proveedores',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_VENTA',
+        nombre: 'Salida por Venta',
+        descripcion: 'Salida de productos por venta a clientes',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'AJUSTE_POSITIVO',
+        nombre: 'Ajuste Positivo',
+        descripcion: 'Ajuste manual de inventario (incremento)',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: true,
+        activo: true
+      },
+      {
+        codigo: 'AJUSTE_NEGATIVO',
+        nombre: 'Ajuste Negativo',
+        descripcion: 'Ajuste manual de inventario (decremento)',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: true,
         activo: true
       }
     ], { ignoreDuplicates: true });
