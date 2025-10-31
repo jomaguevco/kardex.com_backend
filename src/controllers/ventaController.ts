@@ -178,11 +178,11 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
 
       // Crear movimiento en KARDEX
       // tipo_movimiento_id es opcional y referencia a tipos_movimiento_kardex, no a la venta
+      // No lo incluimos porque es opcional y TypeScript no acepta null
       await MovimientoKardex.create({
         producto_id: producto.id,
         almacen_id: 1, // Almacén principal por defecto
         tipo_movimiento: 'SALIDA_VENTA',
-        tipo_movimiento_id: null, // No requerido, puede ser null
         cantidad: detalle.cantidad,
         precio_unitario: detalle.precio_unitario,
         costo_total: detalle.cantidad * producto.costo_promedio,
