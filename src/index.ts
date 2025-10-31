@@ -10,6 +10,7 @@ import routes from './routes';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import sequelize from './config/database';
 import Usuario from './models/Usuario';
+import { seedInitialData } from './scripts/seedInitialData';
 
 const app = express();
 
@@ -105,6 +106,9 @@ const startServer = async () => {
 
     // Crear usuario admin si no existe
     await ensureAdminUser();
+
+    // Insertar datos iniciales (categorías, marcas, unidades, etc.)
+    await seedInitialData();
 
     // Iniciar servidor
     app.listen(config.port, () => {
