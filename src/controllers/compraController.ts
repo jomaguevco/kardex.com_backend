@@ -174,11 +174,12 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
       }, { transaction });
 
       // Crear movimiento en KARDEX
+      // tipo_movimiento_id es opcional y referencia a tipos_movimiento_kardex, no a la compra
+      // No lo incluimos porque es opcional y TypeScript no acepta null
       await MovimientoKardex.create({
         producto_id: producto.id,
         almacen_id: 1, // Almacén principal por defecto
         tipo_movimiento: 'ENTRADA_COMPRA',
-        tipo_movimiento_id: compra.id,
         cantidad: detalle.cantidad,
         precio_unitario: detalle.precio_unitario,
         costo_total: detalle.cantidad * detalle.precio_unitario,
@@ -286,11 +287,11 @@ export const deleteCompra = async (req: Request, res: Response): Promise<void> =
         await producto.update({ stock_actual: nuevoStock }, { transaction });
 
         // Crear movimiento de reversión en KARDEX
+        // tipo_movimiento_id es opcional y referencia a tipos_movimiento_kardex, no a la compra
         await MovimientoKardex.create({
           producto_id: producto.id,
           almacen_id: 1,
           tipo_movimiento: 'SALIDA_DEVOLUCION_PROVEEDOR',
-          tipo_movimiento_id: compra.id,
           cantidad: detalle.cantidad,
           precio_unitario: detalle.precio_unitario,
           costo_total: detalle.cantidad * producto.costo_promedio,
