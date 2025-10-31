@@ -18,6 +18,8 @@ const detalleVentaSchema = Joi.object({
   producto_id: Joi.number().integer().required(),
   cantidad: Joi.number().min(0.01).required(),
   precio_unitario: Joi.number().min(0).required(),
+  descuento: Joi.number().min(0).optional(), // Campo que envía el frontend
+  subtotal: Joi.number().min(0).optional(), // Campo que envía el frontend
   descuento_porcentaje: Joi.number().min(0).max(100).optional(),
   descuento_monto: Joi.number().min(0).optional()
 });
@@ -26,8 +28,10 @@ const createVentaSchema = Joi.object({
   cliente_id: Joi.number().integer().required(),
   numero_factura: Joi.string().max(50).optional(),
   numero_control: Joi.string().max(50).optional(),
-  fecha_venta: Joi.date().optional(),
+  fecha_venta: Joi.alternatives().try(Joi.date(), Joi.string()).optional(), // Acepta fecha o string ISO
   subtotal: Joi.number().min(0).optional(),
+  descuento: Joi.number().min(0).optional(), // Campo que envía el frontend
+  impuestos: Joi.number().min(0).optional(), // Campo que envía el frontend
   descuento_porcentaje: Joi.number().min(0).max(100).optional(),
   descuento_monto: Joi.number().min(0).optional(),
   impuesto_porcentaje: Joi.number().min(0).max(100).optional(),

@@ -125,11 +125,17 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
     // Generar número de factura si no se proporciona
     const numeroFactura = numero_factura || `FAC-${Date.now()}`;
 
+    // Convertir fecha_venta si viene como string ISO
+    let fechaVenta = fecha_venta || new Date();
+    if (typeof fechaVenta === 'string') {
+      fechaVenta = new Date(fechaVenta);
+    }
+
     // Crear la venta
     const venta = await Venta.create({
       cliente_id,
       numero_factura: numeroFactura,
-      fecha_venta: fecha_venta || new Date(),
+      fecha_venta: fechaVenta,
       subtotal: subtotal || 0,
       descuento: descuento || 0,
       impuestos: impuestos || 0,
