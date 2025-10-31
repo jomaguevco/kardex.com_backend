@@ -140,7 +140,7 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
       descuento: descuento || 0,
       impuestos: impuestos || 0,
       total: total || 0,
-      estado: estado || 'PENDIENTE',
+      estado: estado || 'PROCESADA', // Por defecto PROCESADA ya que se actualiza stock y se crea movimiento KARDEX
       observaciones,
       usuario_id
     }, { transaction });
