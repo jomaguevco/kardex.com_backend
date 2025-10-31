@@ -11,6 +11,7 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 import sequelize from './config/database';
 import Usuario from './models/Usuario';
 import { seedInitialData } from './scripts/seedInitialData';
+import { fixProductosTable } from './scripts/fixProductosTable';
 
 const app = express();
 
@@ -31,7 +32,11 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
-  message: 'Demasiadas solicitudes desde esta IP'
+  message: 'Demasiadas solicitudes desde esta IP',
+  // Configurar para Railway con trust proxy
+  standardHeaders: true,
+  legacyHeaders: false,
+  trustProxy: true
 });
 app.use(limiter);
 
@@ -108,6 +113,9 @@ const startServer = async () => {
 
     // Crear usuario admin si no existe
     await ensureAdminUser();
+
+    // Corregir tabla productos si es necesario
+    await fixProductosTable();
 
     // Insertar datos iniciales (categorías, marcas, unidades, etc.)
     await seedInitialData();
