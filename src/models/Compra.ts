@@ -89,7 +89,7 @@ Compra.init(
     estado: {
       type: DataTypes.ENUM('PENDIENTE', 'PROCESADA', 'ANULADA'),
       allowNull: false,
-      defaultValue: 'PENDIENTE'
+      defaultValue: 'PROCESADA'
     },
     observaciones: {
       type: DataTypes.TEXT,

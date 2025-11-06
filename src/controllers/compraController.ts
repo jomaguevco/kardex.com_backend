@@ -124,17 +124,35 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
     // Generar número de factura si no se proporciona
     const numeroFactura = numero_factura || `COMP-${Date.now()}`;
 
+    // Calcular totales basándose en los detalles si no se proporcionan
+    let subtotalCalculado = 0;
+    let descuentoCalculado = 0;
+    let impuestosCalculado = 0;
+    
+    if (detalles && detalles.length > 0) {
+      subtotalCalculado = detalles.reduce((sum: number, det: any) => {
+        return sum + (det.cantidad * det.precio_unitario - (det.descuento || 0));
+      }, 0);
+      descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + (det.descuento || 0), 0);
+    }
+
+    // Usar valores proporcionados o calculados
+    const subtotalFinal = subtotal || subtotalCalculado;
+    const descuentoFinal = descuento || descuentoCalculado;
+    const impuestosFinal = impuestos || impuestosCalculado;
+    const totalFinal = total || (subtotalFinal - descuentoFinal + impuestosFinal);
+
     // Crear la compra
     const compra = await Compra.create({
       proveedor_id,
       numero_factura: numeroFactura,
       fecha_compra: fecha_compra || new Date(),
       fecha_vencimiento,
-      subtotal: subtotal || 0,
-      descuento: descuento || 0,
-      impuestos: impuestos || 0,
-      total: total || 0,
-      estado: estado || 'PENDIENTE',
+      subtotal: subtotalFinal,
+      descuento: descuentoFinal,
+      impuestos: impuestosFinal,
+      total: totalFinal,
+      estado: estado || 'PROCESADA',
       observaciones,
       usuario_id
     }, { transaction });
