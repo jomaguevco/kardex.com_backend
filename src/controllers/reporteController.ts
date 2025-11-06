@@ -359,7 +359,7 @@ export const getReporteMovimientos = async (req: Request, res: Response): Promis
 
     // Estadísticas por tipo de movimiento
     const estadisticasPorTipo = movimientos.reduce((acc: any, movimiento) => {
-      const tipoMovimiento = (movimiento as any).tipoMovimiento;
+      const tipoMovimiento = (movimiento as any).tipo_movimiento;
       const tipo = tipoMovimiento ? tipoMovimiento.nombre : 'DESCONOCIDO';
       if (!acc[tipo]) {
         acc[tipo] = { cantidad: 0, total: 0 };
