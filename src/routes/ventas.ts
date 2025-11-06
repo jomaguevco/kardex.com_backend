@@ -8,7 +8,8 @@ import {
   createVenta,
   updateVenta,
   deleteVenta,
-  getEstadisticasVentas
+  getEstadisticasVentas,
+  getFacturaPDF
 } from '../controllers/ventaController';
 
 const router = Router();
@@ -52,6 +53,7 @@ const updateVentaSchema = Joi.object({
 // Rutas
 router.get('/', authenticateToken, getVentas);
 router.get('/estadisticas', authenticateToken, getEstadisticasVentas);
+router.get('/:id/pdf', authenticateToken, getFacturaPDF);
 router.get('/:id', authenticateToken, getVentaById);
 router.post('/', authenticateToken, validate(createVentaSchema), createVenta);
 router.put('/:id', authenticateToken, validate(updateVentaSchema), updateVenta);

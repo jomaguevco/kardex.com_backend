@@ -13,6 +13,7 @@ import Almacen from './Almacen';
 import Categoria from './Categoria';
 import Marca from './Marca';
 import UnidadMedida from './UnidadMedida';
+import PasswordResetToken from './PasswordResetToken';
 
 // Definir asociaciones
 // Usuario
@@ -20,6 +21,7 @@ Usuario.hasMany(Venta, { foreignKey: 'usuario_id', as: 'ventas' });
 Usuario.hasMany(Compra, { foreignKey: 'usuario_id', as: 'compras' });
 Usuario.hasMany(MovimientoKardex, { foreignKey: 'usuario_id', as: 'movimientos' });
 Usuario.hasMany(MovimientoKardex, { foreignKey: 'autorizado_por', as: 'movimientosAutorizados' });
+Usuario.hasMany(PasswordResetToken, { foreignKey: 'usuario_id', as: 'passwordResetTokens' });
 
 // Producto
 Producto.belongsTo(Categoria, { foreignKey: 'categoria_id', as: 'categoria' });
@@ -80,6 +82,9 @@ UnidadMedida.hasMany(Producto, { foreignKey: 'unidad_medida_id', as: 'productos'
 // Sincronizar modelos con la base de datos
 sequelize.sync({ alter: false });
 
+// PasswordResetToken
+PasswordResetToken.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
 export {
   sequelize,
   Usuario,
@@ -95,5 +100,6 @@ export {
   Almacen,
   Categoria,
   Marca,
-  UnidadMedida
+  UnidadMedida,
+  PasswordResetToken
 };

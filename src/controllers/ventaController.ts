@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Venta, DetalleVenta, Producto, Cliente, Usuario, MovimientoKardex } from '../models';
 import { Op, Transaction } from 'sequelize';
 import sequelize from '../config/database';
+import { generateFacturaPDF } from '../utils/pdfGenerator';
 
 export const getVentas = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -99,6 +100,44 @@ export const getVentaById = async (req: Request, res: Response): Promise<void> =
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
+    });
+  }
+};
+
+export const getFacturaPDF = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const venta = await Venta.findByPk(id, {
+      include: [
+        { model: Cliente, as: 'cliente' },
+        { model: Usuario, as: 'usuario' },
+        { 
+          model: DetalleVenta, 
+          as: 'detalles',
+          include: [{ model: Producto, as: 'producto' }]
+        }
+      ]
+    });
+
+    if (!venta) {
+      res.status(404).json({
+        success: false,
+        message: 'Venta no encontrada'
+      });
+      return;
+    }
+
+    const pdfBuffer = await generateFacturaPDF(venta);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="factura-${venta.numero_factura}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error al generar PDF de factura:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF de factura'
     });
   }
 };

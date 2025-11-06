@@ -112,6 +112,30 @@ const startServer = async () => {
     // En producción solo crea las tablas, no las modifica ni borra
     await sequelize.sync({ force: false, alter: false });
     console.log('✅ Modelos sincronizados (tablas verificadas)');
+    
+    // Verificar/crear tabla password_reset_tokens si no existe
+    try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          usuario_id INT NOT NULL,
+          token VARCHAR(255) NOT NULL UNIQUE,
+          expires_at TIMESTAMP NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+          INDEX idx_token (token),
+          INDEX idx_usuario_id (usuario_id),
+          INDEX idx_expires_at (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      console.log('✅ Tabla password_reset_tokens verificada/creada');
+    } catch (error: any) {
+      // Si la tabla ya existe o hay un error menor, continuar
+      if (!error.message.includes('already exists')) {
+        console.warn('⚠️ Advertencia al crear tabla password_reset_tokens:', error.message);
+      }
+    }
 
     // Crear usuario admin si no existe
     await ensureAdminUser();
