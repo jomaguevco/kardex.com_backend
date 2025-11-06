@@ -346,7 +346,7 @@ export const getReporteMovimientos = async (req: Request, res: Response): Promis
         {
           model: Producto,
           as: 'producto',
-          attributes: ['id', 'codigo', 'nombre']
+          attributes: ['id', 'codigo_interno', 'nombre']
         },
         {
           model: TipoMovimientoKardex,
