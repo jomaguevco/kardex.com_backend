@@ -43,6 +43,31 @@ export const getCompras = async (req: Request, res: Response): Promise<void> => 
       order: [['fecha_compra', 'DESC']]
     });
 
+    // Recalcular totales para compras con total 0
+    for (const compra of compras) {
+      const detalles = (compra as any).detalles || [];
+      if (Number(compra.total) === 0 && detalles.length > 0) {
+        const subtotalCalculado = detalles.reduce((sum: number, det: any) => {
+          return sum + (Number(det.cantidad) * Number(det.precio_unitario) - Number(det.descuento || 0));
+        }, 0);
+        const descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + Number(det.descuento || 0), 0);
+        const totalCalculado = subtotalCalculado - descuentoCalculado + Number(compra.impuestos || 0);
+        
+        if (subtotalCalculado !== Number(compra.subtotal) || totalCalculado !== Number(compra.total)) {
+          await compra.update({
+            subtotal: subtotalCalculado,
+            descuento: descuentoCalculado,
+            total: totalCalculado
+          });
+          
+          // Actualizar los valores en el objeto que se devuelve
+          (compra as any).subtotal = subtotalCalculado;
+          (compra as any).descuento = descuentoCalculado;
+          (compra as any).total = totalCalculado;
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: {
