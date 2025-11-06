@@ -44,14 +44,19 @@ export const getCompras = async (req: Request, res: Response): Promise<void> => 
     });
 
     // Recalcular totales para compras con total 0
+    // Lógica: precio_real = precio_unitario - descuento, subtotal = precio_real * cantidad
     for (const compra of compras) {
       const detalles = (compra as any).detalles || [];
       if (Number(compra.total) === 0 && detalles.length > 0) {
-        const subtotalCalculado = detalles.reduce((sum: number, det: any) => {
-          return sum + (Number(det.cantidad) * Number(det.precio_unitario) - Number(det.descuento || 0));
-        }, 0);
-        const descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + Number(det.descuento || 0), 0);
-        const totalCalculado = subtotalCalculado - descuentoCalculado + Number(compra.impuestos || 0);
+        let subtotalCalculado = 0;
+        let descuentoCalculado = 0;
+        detalles.forEach((det: any) => {
+          const precioReal = Number(det.precio_unitario) - Number(det.descuento || 0);
+          const subtotalDetalle = precioReal * Number(det.cantidad);
+          subtotalCalculado += subtotalDetalle;
+          descuentoCalculado += Number(det.descuento || 0) * Number(det.cantidad);
+        });
+        const totalCalculado = subtotalCalculado + Number(compra.impuestos || 0);
         
         if (subtotalCalculado !== Number(compra.subtotal) || totalCalculado !== Number(compra.total)) {
           await compra.update({
@@ -114,13 +119,18 @@ export const getCompraById = async (req: Request, res: Response): Promise<void> 
     }
 
     // Recalcular totales si el total es 0 pero hay detalles
+    // Lógica: precio_real = precio_unitario - descuento, subtotal = precio_real * cantidad
     const detalles = (compra as any).detalles || [];
     if (Number(compra.total) === 0 && detalles.length > 0) {
-      const subtotalCalculado = detalles.reduce((sum: number, det: any) => {
-        return sum + (Number(det.cantidad) * Number(det.precio_unitario) - Number(det.descuento || 0));
-      }, 0);
-      const descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + Number(det.descuento || 0), 0);
-      const totalCalculado = subtotalCalculado - descuentoCalculado + Number(compra.impuestos || 0);
+      let subtotalCalculado = 0;
+      let descuentoCalculado = 0;
+      detalles.forEach((det: any) => {
+        const precioReal = Number(det.precio_unitario) - Number(det.descuento || 0);
+        const subtotalDetalle = precioReal * Number(det.cantidad);
+        subtotalCalculado += subtotalDetalle;
+        descuentoCalculado += Number(det.descuento || 0) * Number(det.cantidad);
+      });
+      const totalCalculado = subtotalCalculado + Number(compra.impuestos || 0);
       
       // Actualizar la compra si los valores calculados son diferentes
       if (subtotalCalculado !== Number(compra.subtotal) || totalCalculado !== Number(compra.total)) {
@@ -182,15 +192,18 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
     const numeroFactura = numero_factura || `COMP-${Date.now()}`;
 
     // Calcular totales basándose en los detalles si no se proporcionan
+    // Lógica: precio_real = precio_unitario - descuento, subtotal = precio_real * cantidad
     let subtotalCalculado = 0;
     let descuentoCalculado = 0;
     let impuestosCalculado = 0;
     
     if (detalles && detalles.length > 0) {
-      subtotalCalculado = detalles.reduce((sum: number, det: any) => {
-        return sum + (det.cantidad * det.precio_unitario - (det.descuento || 0));
-      }, 0);
-      descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + (det.descuento || 0), 0);
+      detalles.forEach((det: any) => {
+        const precioReal = det.precio_unitario - (det.descuento || 0);
+        const subtotalDetalle = precioReal * det.cantidad;
+        subtotalCalculado += subtotalDetalle;
+        descuentoCalculado += (det.descuento || 0) * det.cantidad;
+      });
     }
 
     // Usar valores proporcionados o calculados
@@ -223,13 +236,19 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
         throw new Error(`Producto con ID ${detalle.producto_id} no encontrado`);
       }
 
+      // Calcular según lógica del profesor:
+      // precio_real = precio_unitario - descuento
+      // subtotal = precio_real * cantidad
+      const precioReal = detalle.precio_unitario - (detalle.descuento || 0);
+      const subtotalDetalle = precioReal * detalle.cantidad;
+      
       const detalleCompra = await DetalleCompra.create({
         compra_id: compra.id,
         producto_id: detalle.producto_id,
         cantidad: detalle.cantidad,
         precio_unitario: detalle.precio_unitario,
         descuento: detalle.descuento || 0,
-        subtotal: detalle.cantidad * detalle.precio_unitario - (detalle.descuento || 0)
+        subtotal: subtotalDetalle
       }, { transaction });
 
       detallesCompra.push(detalleCompra);
