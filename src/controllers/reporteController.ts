@@ -7,6 +7,8 @@ import Producto from '../models/Producto';
 import MovimientoKardex from '../models/MovimientoKardex';
 import Cliente from '../models/Cliente';
 import Proveedor from '../models/Proveedor';
+import DetalleVenta from '../models/DetalleVenta';
+import TipoMovimientoKardex from '../models/TipoMovimientoKardex';
 
 export const getReporteVentas = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -247,7 +249,7 @@ export const getReporteRentabilidad = async (req: Request, res: Response): Promi
       where: whereClause,
       include: [
         {
-          model: require('@/models/DetalleVenta').default,
+          model: DetalleVenta,
           as: 'detalles',
           include: [
             {
@@ -347,9 +349,9 @@ export const getReporteMovimientos = async (req: Request, res: Response): Promis
           attributes: ['id', 'codigo', 'nombre']
         },
         {
-          model: require('@/models/TipoMovimientoKardex').default,
+          model: TipoMovimientoKardex,
           as: 'tipo_movimiento',
-          attributes: ['id', 'nombre', 'tipo']
+          attributes: ['id', 'nombre', 'tipo_operacion']
         }
       ],
       order: [['fecha_movimiento', 'DESC']]
