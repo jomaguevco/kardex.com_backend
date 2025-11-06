@@ -255,7 +255,7 @@ export const getReporteRentabilidad = async (req: Request, res: Response): Promi
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'codigo', 'nombre', 'precio_compra']
+              attributes: ['id', 'codigo_interno', 'nombre', 'precio_compra']
             }
           ]
         }
@@ -350,7 +350,7 @@ export const getReporteMovimientos = async (req: Request, res: Response): Promis
         },
         {
           model: TipoMovimientoKardex,
-          as: 'tipo_movimiento',
+          as: 'tipoMovimiento',
           attributes: ['id', 'nombre', 'tipo_operacion']
         }
       ],
@@ -359,8 +359,8 @@ export const getReporteMovimientos = async (req: Request, res: Response): Promis
 
     // Estadísticas por tipo de movimiento
     const estadisticasPorTipo = movimientos.reduce((acc: any, movimiento) => {
-      const tipoMovimiento = (movimiento as any).tipo_movimiento;
-      const tipo = tipoMovimiento ? tipoMovimiento.nombre : 'DESCONOCIDO';
+      const tipoMovimiento = (movimiento as any).tipoMovimiento;
+      const tipo = tipoMovimiento ? tipoMovimiento.nombre : (movimiento as any).tipo_movimiento || 'DESCONOCIDO';
       if (!acc[tipo]) {
         acc[tipo] = { cantidad: 0, total: 0 };
       }
