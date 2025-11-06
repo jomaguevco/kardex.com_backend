@@ -106,7 +106,7 @@ export const generateFacturaPDF = async (venta: any): Promise<Buffer> => {
 
       // Pie de página
       doc.fontSize(8).font('Helvetica');
-      doc.text('Gracias por su compra', { align: 'center' }, doc.page.height - 50);
+      doc.text('Gracias por su compra', 50, doc.page.height - 50, { align: 'center', width: 500 });
 
       doc.end();
     } catch (error) {
