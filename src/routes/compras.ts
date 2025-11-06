@@ -28,7 +28,6 @@ const createCompraSchema = Joi.object({
   fecha_vencimiento: Joi.date().optional(),
   subtotal: Joi.number().min(0).optional(),
   descuento: Joi.number().min(0).optional(),
-  impuestos: Joi.number().min(0).optional(),
   total: Joi.number().min(0).optional(),
   estado: Joi.string().valid('PENDIENTE', 'PROCESADA', 'ANULADA').optional(),
   observaciones: Joi.string().optional(),
