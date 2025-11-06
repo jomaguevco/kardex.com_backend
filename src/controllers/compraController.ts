@@ -88,6 +88,38 @@ export const getCompraById = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Recalcular totales si el total es 0 pero hay detalles
+    const detalles = (compra as any).detalles || [];
+    if (Number(compra.total) === 0 && detalles.length > 0) {
+      const subtotalCalculado = detalles.reduce((sum: number, det: any) => {
+        return sum + (Number(det.cantidad) * Number(det.precio_unitario) - Number(det.descuento || 0));
+      }, 0);
+      const descuentoCalculado = detalles.reduce((sum: number, det: any) => sum + Number(det.descuento || 0), 0);
+      const totalCalculado = subtotalCalculado - descuentoCalculado + Number(compra.impuestos || 0);
+      
+      // Actualizar la compra si los valores calculados son diferentes
+      if (subtotalCalculado !== Number(compra.subtotal) || totalCalculado !== Number(compra.total)) {
+        await compra.update({
+          subtotal: subtotalCalculado,
+          descuento: descuentoCalculado,
+          total: totalCalculado
+        });
+        
+        // Recargar la compra con los valores actualizados
+        await compra.reload({
+          include: [
+            { model: Proveedor, as: 'proveedor' },
+            { model: Usuario, as: 'usuario' },
+            { 
+              model: DetalleCompra, 
+              as: 'detalles',
+              include: [{ model: Producto, as: 'producto' }]
+            }
+          ]
+        });
+      }
+    }
+
     res.json({
       success: true,
       data: compra
