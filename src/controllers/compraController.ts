@@ -56,7 +56,7 @@ export const getCompras = async (req: Request, res: Response): Promise<void> => 
           subtotalCalculado += subtotalDetalle;
           descuentoCalculado += Number(det.descuento || 0) * Number(det.cantidad);
         });
-        const totalCalculado = subtotalCalculado + Number(compra.impuestos || 0);
+        const totalCalculado = subtotalCalculado;
         
         if (subtotalCalculado !== Number(compra.subtotal) || totalCalculado !== Number(compra.total)) {
           await compra.update({
@@ -179,7 +179,6 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
       fecha_vencimiento,
       subtotal,
       descuento,
-      impuestos,
       total,
       estado,
       observaciones,
@@ -195,7 +194,6 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
     // Lógica: precio_real = precio_unitario - descuento, subtotal = precio_real * cantidad
     let subtotalCalculado = 0;
     let descuentoCalculado = 0;
-    let impuestosCalculado = 0;
     
     if (detalles && detalles.length > 0) {
       detalles.forEach((det: any) => {
@@ -207,10 +205,10 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
     }
 
     // Usar valores proporcionados o calculados
+    // Total = subtotal (sin impuestos)
     const subtotalFinal = subtotal || subtotalCalculado;
     const descuentoFinal = descuento || descuentoCalculado;
-    const impuestosFinal = impuestos || impuestosCalculado;
-    const totalFinal = total || (subtotalFinal - descuentoFinal + impuestosFinal);
+    const totalFinal = total || subtotalFinal;
 
     // Crear la compra
     const compra = await Compra.create({
@@ -220,7 +218,7 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
       fecha_vencimiento,
       subtotal: subtotalFinal,
       descuento: descuentoFinal,
-      impuestos: impuestosFinal,
+      impuestos: 0, // Impuestos eliminados del sistema
       total: totalFinal,
       estado: estado || 'PROCESADA',
       observaciones,
@@ -444,8 +442,7 @@ export const getEstadisticasCompras = async (req: Request, res: Response): Promi
         'fecha_compra',
         'total',
         'subtotal',
-        'descuento_monto',
-        'impuesto_monto'
+        'descuento_monto'
       ]
     });
 
@@ -454,7 +451,6 @@ export const getEstadisticasCompras = async (req: Request, res: Response): Promi
       total_monto: compras.reduce((sum, c) => sum + Number(c.total), 0),
       total_subtotal: compras.reduce((sum, c) => sum + Number(c.subtotal), 0),
       total_descuentos: compras.reduce((sum, c) => sum + Number(c.descuento), 0),
-      total_impuestos: compras.reduce((sum, c) => sum + Number(c.impuestos), 0),
       promedio_compra: compras.length > 0 ? compras.reduce((sum, c) => sum + Number(c.total), 0) / compras.length : 0
     };
 
