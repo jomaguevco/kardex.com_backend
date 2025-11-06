@@ -18,7 +18,7 @@ export const getReporteVentas = async (req: Request, res: Response): Promise<voi
 
     // Filtro por fechas
     if (fecha_inicio && fecha_fin) {
-      whereClause.fecha_movimiento = {
+      whereClause.fecha_venta = {
         [Op.between]: [fecha_inicio, fecha_fin]
       };
     }
@@ -42,7 +42,7 @@ export const getReporteVentas = async (req: Request, res: Response): Promise<voi
           attributes: ['id', 'nombre', 'email']
         }
       ],
-      order: [['fecha_movimiento', 'DESC']]
+      order: [['fecha_venta', 'DESC']]
     });
 
     // Calcular estadísticas
@@ -93,7 +93,7 @@ export const getReporteCompras = async (req: Request, res: Response): Promise<vo
 
     // Filtro por fechas
     if (fecha_inicio && fecha_fin) {
-      whereClause.fecha_movimiento = {
+      whereClause.fecha_compra = {
         [Op.between]: [fecha_inicio, fecha_fin]
       };
     }
@@ -117,7 +117,7 @@ export const getReporteCompras = async (req: Request, res: Response): Promise<vo
           attributes: ['id', 'nombre', 'email']
         }
       ],
-      order: [['fecha_movimiento', 'DESC']]
+      order: [['fecha_compra', 'DESC']]
     });
 
     // Calcular estadísticas
@@ -237,7 +237,7 @@ export const getReporteRentabilidad = async (req: Request, res: Response): Promi
     };
 
     if (fecha_inicio && fecha_fin) {
-      whereClause.fecha_movimiento = {
+      whereClause.fecha_venta = {
         [Op.between]: [fecha_inicio, fecha_fin]
       };
     }
