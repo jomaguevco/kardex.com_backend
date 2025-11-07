@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { listarTransacciones } from '@/controllers/monitorController';
-import { authenticateToken } from '@/middleware/auth';
+import { listarTransacciones } from '../controllers/monitorController';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 

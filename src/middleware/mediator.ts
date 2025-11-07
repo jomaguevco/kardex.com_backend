@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
-import eventBus from '@/utils/eventBus';
+import eventBus from '../utils/eventBus';
 
 interface RequestContext {
   requestId: string;

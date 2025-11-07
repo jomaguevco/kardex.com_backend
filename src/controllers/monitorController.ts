@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import MonitoreoTransaccion from '@/models/MonitoreoTransaccion';
+import MonitoreoTransaccion from '../models/MonitoreoTransaccion';
 
 export const listarTransacciones = async (req: Request, res: Response) => {
   try {

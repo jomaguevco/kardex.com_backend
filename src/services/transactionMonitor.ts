@@ -1,5 +1,5 @@
-import MonitoreoTransaccion, { EstadoMonitoreo } from '@/models/MonitoreoTransaccion';
-import eventBus from '@/utils/eventBus';
+import MonitoreoTransaccion, { EstadoMonitoreo } from '../models/MonitoreoTransaccion';
+import eventBus from '../utils/eventBus';
 
 interface MonitorParams {
   modulo: string;
