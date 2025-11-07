@@ -8,10 +8,12 @@ import crypto from 'crypto';
 import { config } from './config';
 import routes from './routes';
 import { errorHandler, notFound } from './middleware/errorHandler';
+import { mediatorMiddleware } from './middleware/mediator';
 import sequelize from './config/database';
 import Usuario from './models/Usuario';
 import { seedInitialData } from './scripts/seedInitialData';
 import { fixProductosTable } from './scripts/fixProductosTable';
+import eventBus from './utils/eventBus';
 
 const app = express();
 
@@ -51,6 +53,9 @@ if (config.nodeEnv === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Mediador: genera contexto y eventos para cada petición
+app.use(mediatorMiddleware);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({
@@ -76,6 +81,31 @@ app.use('/api', routes);
 // Middleware de manejo de errores
 app.use(notFound);
 app.use(errorHandler);
+
+// Suscriptores básicos del bus de eventos (Message Oriented Middleware)
+eventBus.on('mediator:request-started', (payload) => {
+  if (config.nodeEnv === 'development') {
+    console.log(`➡️  [${payload.requestId}] ${payload.metodo} ${payload.ruta}`);
+  }
+});
+
+eventBus.on('mediator:request-finished', (payload) => {
+  if (config.nodeEnv === 'development') {
+    console.log(`✅ [${payload.requestId}] ${payload.statusCode} (${payload.durationMs}ms)`);
+  }
+});
+
+eventBus.on('monitor:transaction-started', (payload) => {
+  if (config.nodeEnv === 'development') {
+    console.log(`🟡 Tx ${payload.id} iniciada (${payload.modulo}:${payload.accion})`);
+  }
+});
+
+eventBus.on('monitor:transaction-finished', (payload) => {
+  if (config.nodeEnv === 'development') {
+    console.log(`🔵 Tx ${payload.id} finalizada con estado ${payload.estado}`);
+  }
+});
 
 // Crear usuario admin si no existe
 const ensureAdminUser = async () => {

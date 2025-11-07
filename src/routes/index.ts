@@ -8,6 +8,7 @@ import proveedorRoutes from './proveedores';
 import kardexRoutes from './kardex';
 import reporteRoutes from './reportes';
 import usuarioRoutes from './usuarios';
+import monitorRoutes from './monitor';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use('/proveedores', proveedorRoutes);
 router.use('/kardex', kardexRoutes);
 router.use('/reportes', reporteRoutes);
 router.use('/usuarios', usuarioRoutes);
+router.use('/monitor-transacciones', monitorRoutes);
 
 // Ruta de salud del servidor
 router.get('/health', (req, res) => {

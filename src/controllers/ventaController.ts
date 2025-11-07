@@ -3,6 +3,7 @@ import { Venta, DetalleVenta, Producto, Cliente, Usuario, MovimientoKardex } fro
 import { Op, Transaction } from 'sequelize';
 import sequelize from '../config/database';
 import { generateFacturaPDF } from '../utils/pdfGenerator';
+import { finalizarMonitoreo, iniciarMonitoreo } from '@/services/transactionMonitor';
 
 export const getVentas = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -144,6 +145,7 @@ export const getFacturaPDF = async (req: Request, res: Response): Promise<void> 
 
 export const createVenta = async (req: Request, res: Response): Promise<void> => {
   const transaction: Transaction = await sequelize.transaction();
+  let monitoreoId: number | null = null;
 
   try {
     const {
@@ -171,6 +173,19 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Crear la venta
+    const monitoreo = await iniciarMonitoreo({
+      modulo: 'VENTAS',
+      accion: 'CREAR',
+      referencia: numeroFactura,
+      requestId: (req as any).context?.requestId,
+      payload: {
+        cliente_id,
+        total,
+        items: detalles?.length || 0
+      }
+    });
+    monitoreoId = monitoreo.id;
+
     const venta = await Venta.create({
       cliente_id,
       numero_factura: numeroFactura,
@@ -238,6 +253,8 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
 
     await transaction.commit();
 
+    await finalizarMonitoreo(monitoreo.id, 'EXITO', 'Venta creada correctamente');
+
     res.status(201).json({
       success: true,
       data: {
@@ -248,6 +265,13 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
     });
   } catch (error: any) {
     await transaction.rollback();
+    if (monitoreoId) {
+      try {
+        await finalizarMonitoreo(monitoreoId, 'ERROR', error?.message);
+      } catch (monitorError) {
+        console.error('No se pudo registrar el monitoreo de error en venta:', monitorError);
+      }
+    }
     console.error('Error al crear venta:', error);
     res.status(500).json({
       success: false,
@@ -298,6 +322,7 @@ export const updateVenta = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteVenta = async (req: Request, res: Response): Promise<void> => {
   const transaction: Transaction = await sequelize.transaction();
+  let monitoreoId: number | null = null;
 
   try {
     const { id } = req.params;
@@ -313,6 +338,18 @@ export const deleteVenta = async (req: Request, res: Response): Promise<void> =>
       });
       return;
     }
+
+    const monitoreo = await iniciarMonitoreo({
+      modulo: 'VENTAS',
+      accion: 'ANULAR',
+      referencia: venta.numero_factura,
+      requestId: (req as any).context?.requestId,
+      payload: {
+        detalles: venta.detalles?.length || 0,
+        venta_id: venta.id
+      }
+    });
+    monitoreoId = monitoreo.id;
 
     // Revertir movimientos de stock
     if (venta.detalles) {
@@ -356,12 +393,21 @@ export const deleteVenta = async (req: Request, res: Response): Promise<void> =>
 
     await transaction.commit();
 
+    await finalizarMonitoreo(monitoreo.id, 'EXITO', 'Venta eliminada y stock revertido');
+
     res.json({
       success: true,
       message: 'Venta eliminada exitosamente'
     });
-  } catch (error) {
+  } catch (error: any) {
     await transaction.rollback();
+    if (monitoreoId) {
+      try {
+        await finalizarMonitoreo(monitoreoId, 'ERROR', error?.message);
+      } catch (monitorError) {
+        console.error('No se pudo registrar el monitoreo de error en eliminación de venta:', monitorError);
+      }
+    }
     console.error('Error al eliminar venta:', error);
     res.status(500).json({
       success: false,

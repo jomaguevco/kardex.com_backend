@@ -14,6 +14,7 @@ import Categoria from './Categoria';
 import Marca from './Marca';
 import UnidadMedida from './UnidadMedida';
 import PasswordResetToken from './PasswordResetToken';
+import MonitoreoTransaccion from './MonitoreoTransaccion';
 
 // Definir asociaciones
 // Usuario
@@ -101,5 +102,6 @@ export {
   Categoria,
   Marca,
   UnidadMedida,
-  PasswordResetToken
+  PasswordResetToken,
+  MonitoreoTransaccion
 };
