@@ -3,7 +3,7 @@ import { Venta, DetalleVenta, Producto, Cliente, Usuario, MovimientoKardex } fro
 import { Op, Transaction } from 'sequelize';
 import sequelize from '../config/database';
 import { generateFacturaPDF } from '../utils/pdfGenerator';
-import { finalizarMonitoreo, iniciarMonitoreo } from '@/services/transactionMonitor';
+import { finalizarMonitoreo, iniciarMonitoreo } from '../services/transactionMonitor';
 
 export const getVentas = async (req: Request, res: Response): Promise<void> => {
   try {
