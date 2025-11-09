@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import packageJson from '../../package.json';
 import authRoutes from './auth';
 import productoRoutes from './productos';
 import ventaRoutes from './ventas';
@@ -26,10 +27,17 @@ router.use('/monitor-transacciones', monitorRoutes);
 
 // Ruta de salud del servidor
 router.get('/health', (req, res) => {
+  const backendVersion = packageJson.version ?? '0.0.0';
+  const deploymentSignature = process.env.DEPLOYMENT_SIGNATURE ?? 'local';
+  const environment = process.env.NODE_ENV ?? 'development';
+
   res.json({
     success: true,
     message: 'Servidor funcionando correctamente',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    backendVersion,
+    deploymentSignature,
+    environment
   });
 });
 
