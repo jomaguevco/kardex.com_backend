@@ -249,7 +249,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
               model: Producto,
               as: 'producto',
               attributes: ['id', 'nombre', 'codigo']
-            }
+            } as any
           ]
         }
       ],
@@ -306,7 +306,7 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
               model: Producto,
               as: 'producto',
               attributes: ['id', 'nombre', 'codigo', 'imagen_url']
-            }
+            } as any
           ]
         }
       ],
@@ -581,7 +581,7 @@ export const getDetallePedido = async (req: Request, res: Response): Promise<voi
             {
               model: Producto,
               as: 'producto'
-            }
+            } as any
           ]
         },
         {

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Venta, DetalleVenta, Producto, Cliente, ClienteUsuario } from '../models';
 import { Op } from 'sequelize';
+import sequelize from '../config/database';
 
 /**
  * Obtener historial de compras del cliente
@@ -280,12 +281,12 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
         }
       },
       attributes: [
-        [require('sequelize').fn('DATE_FORMAT', require('sequelize').col('fecha_venta'), '%Y-%m'), 'mes'],
-        [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'cantidad'],
-        [require('sequelize').fn('SUM', require('sequelize').col('total')), 'total']
+        [sequelize.fn('DATE_FORMAT', sequelize.col('fecha_venta'), '%Y-%m'), 'mes'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'cantidad'],
+        [sequelize.fn('SUM', sequelize.col('total')), 'total']
       ],
-      group: [require('sequelize').fn('DATE_FORMAT', require('sequelize').col('fecha_venta'), '%Y-%m')],
-      order: [[require('sequelize').fn('DATE_FORMAT', require('sequelize').col('fecha_venta'), '%Y-%m'), 'ASC']],
+      group: [sequelize.fn('DATE_FORMAT', sequelize.col('fecha_venta'), '%Y-%m')],
+      order: [[sequelize.fn('DATE_FORMAT', sequelize.col('fecha_venta'), '%Y-%m'), 'ASC']],
       raw: true
     });
 
@@ -309,11 +310,11 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
       ],
       attributes: [
         'producto_id',
-        [require('sequelize').fn('SUM', require('sequelize').col('cantidad')), 'total_cantidad'],
-        [require('sequelize').fn('SUM', require('sequelize').col('subtotal')), 'total_gastado']
+        [sequelize.fn('SUM', sequelize.col('cantidad')), 'total_cantidad'],
+        [sequelize.fn('SUM', sequelize.col('subtotal')), 'total_gastado']
       ],
       group: ['producto_id'],
-      order: [[require('sequelize').fn('SUM', require('sequelize').col('cantidad')), 'DESC']],
+      order: [[sequelize.fn('SUM', sequelize.col('cantidad')), 'DESC']],
       limit: 10,
       raw: false
     });
