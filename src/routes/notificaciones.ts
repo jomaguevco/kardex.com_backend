@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import * as notificacionController from '../controllers/notificacionController';
-import { authMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 // Obtener notificaciones del usuario
 router.get('/', notificacionController.getNotificaciones);
