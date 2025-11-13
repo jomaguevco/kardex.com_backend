@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Proveedor } from '../models';
+import { Proveedor, Compra } from '../models';
 import { Op } from 'sequelize';
 
 export const getProveedores = async (req: Request, res: Response): Promise<void> => {
@@ -218,6 +218,22 @@ export const deleteProveedor = async (req: Request, res: Response): Promise<void
       res.status(404).json({
         success: false,
         message: 'Proveedor no encontrado'
+      });
+      return;
+    }
+
+    // Verificar si el proveedor tiene compras asociadas
+    const comprasCount = await Compra.count({
+      where: { proveedor_id: id }
+    });
+
+    if (comprasCount > 0) {
+      res.status(400).json({
+        success: false,
+        message: `No se puede eliminar el proveedor porque tiene ${comprasCount} compra(s) registrada(s)`,
+        data: {
+          comprasCount
+        }
       });
       return;
     }

@@ -4,6 +4,7 @@ import { Op, Transaction } from 'sequelize';
 import sequelize from '../config/database';
 import { generateFacturaPDF } from '../utils/pdfGenerator';
 import { finalizarMonitoreo, iniciarMonitoreo } from '../services/transactionMonitor';
+import notificacionService from '../services/notificacionService';
 
 export const getVentas = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -249,11 +250,22 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
         observaciones: `Venta ${numeroFactura}`,
         estado_movimiento: 'APROBADO'
       }, { transaction });
+
+      // Verificar si el producto tiene stock bajo después de la venta
+      if (nuevoStock <= producto.stock_minimo) {
+        // Esta notificación se enviará después del commit
+        setTimeout(() => {
+          notificacionService.notificarStockBajo(producto.id, producto.nombre, nuevoStock, usuario_id);
+        }, 100);
+      }
     }
 
     await transaction.commit();
 
     await finalizarMonitoreo(monitoreo.id, 'EXITO', 'Venta creada correctamente');
+
+    // Notificar venta registrada
+    await notificacionService.notificarVenta(venta.id, numeroFactura, total || 0, usuario_id);
 
     res.status(201).json({
       success: true,

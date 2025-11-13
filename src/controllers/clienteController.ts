@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Cliente } from '../models';
+import { Cliente, Venta } from '../models';
 import { Op } from 'sequelize';
 
 export const getClientes = async (req: Request, res: Response): Promise<void> => {
@@ -217,6 +217,22 @@ export const deleteCliente = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({
         success: false,
         message: 'Cliente no encontrado'
+      });
+      return;
+    }
+
+    // Verificar si el cliente tiene ventas asociadas
+    const ventasCount = await Venta.count({
+      where: { cliente_id: id }
+    });
+
+    if (ventasCount > 0) {
+      res.status(400).json({
+        success: false,
+        message: `No se puede eliminar el cliente porque tiene ${ventasCount} venta(s) registrada(s)`,
+        data: {
+          ventasCount
+        }
       });
       return;
     }

@@ -198,6 +198,102 @@ class NotificacionService {
   }) {
     return await Notificacion.create(data);
   }
+
+  /**
+   * Notificar cuando se registra una nueva venta
+   */
+  async notificarVenta(ventaId: number, numeroFactura: string, total: number, usuarioId: number) {
+    try {
+      await this.crearNotificacion({
+        usuario_id: usuarioId,
+        tipo: 'TRANSACCION',
+        titulo: '✅ Venta registrada',
+        mensaje: `Venta ${numeroFactura} registrada exitosamente por un total de S/. ${total.toFixed(2)}`,
+        referencia_id: ventaId,
+        referencia_tipo: 'venta'
+      });
+    } catch (error) {
+      console.error('Error al notificar venta:', error);
+    }
+  }
+
+  /**
+   * Notificar cuando se registra una nueva compra
+   */
+  async notificarCompra(compraId: number, numeroFactura: string, total: number, usuarioId: number) {
+    try {
+      await this.crearNotificacion({
+        usuario_id: usuarioId,
+        tipo: 'TRANSACCION',
+        titulo: '📦 Compra registrada',
+        mensaje: `Compra ${numeroFactura} registrada exitosamente por un total de S/. ${total.toFixed(2)}`,
+        referencia_id: compraId,
+        referencia_tipo: 'compra'
+      });
+    } catch (error) {
+      console.error('Error al notificar compra:', error);
+    }
+  }
+
+  /**
+   * Notificar cuando un producto tiene stock bajo después de una operación
+   */
+  async notificarStockBajo(productoId: number, nombreProducto: string, stockActual: number, usuarioId: number) {
+    try {
+      // Verificar si ya existe una notificación no leída para este producto
+      const existente = await Notificacion.findOne({
+        where: {
+          usuario_id: usuarioId,
+          tipo: 'STOCK_BAJO',
+          referencia_id: productoId,
+          leido: false
+        }
+      });
+
+      if (!existente) {
+        await this.crearNotificacion({
+          usuario_id: usuarioId,
+          tipo: 'STOCK_BAJO',
+          titulo: '⚠️ Stock bajo',
+          mensaje: `El producto "${nombreProducto}" tiene stock bajo (${stockActual} unidades)`,
+          referencia_id: productoId,
+          referencia_tipo: 'producto'
+        });
+      }
+    } catch (error) {
+      console.error('Error al notificar stock bajo:', error);
+    }
+  }
+
+  /**
+   * Notificar a todos los administradores sobre eventos importantes
+   */
+  async notificarAdministradores(tipo: 'STOCK_BAJO' | 'COMPRA_PENDIENTE' | 'VENTA_PENDIENTE' | 'TRANSACCION' | 'SISTEMA', titulo: string, mensaje: string, referenciaId?: number, referenciaTipo?: string) {
+    try {
+      // Importar Usuario solo cuando se necesite para evitar dependencias circulares
+      const Usuario = (await import('../models/Usuario')).default;
+      
+      const administradores = await Usuario.findAll({
+        where: {
+          rol: 'ADMINISTRADOR',
+          activo: true
+        }
+      });
+
+      for (const admin of administradores) {
+        await this.crearNotificacion({
+          usuario_id: admin.id,
+          tipo,
+          titulo,
+          mensaje,
+          referencia_id: referenciaId,
+          referencia_tipo: referenciaTipo
+        });
+      }
+    } catch (error) {
+      console.error('Error al notificar administradores:', error);
+    }
+  }
 }
 
 export default new NotificacionService();

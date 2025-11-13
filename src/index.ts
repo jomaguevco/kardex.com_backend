@@ -110,6 +110,20 @@ eventBus.on('monitor:transaction-finished', (payload) => {
   }
 });
 
+// Crear directorio de uploads si no existe
+const ensureUploadsDirectory = () => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  const uploadsDir = path.join(__dirname, '../uploads/perfiles');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('✅ Directorio de uploads creado');
+  } else {
+    console.log('✅ Directorio de uploads existe');
+  }
+};
+
 // Crear usuario admin si no existe
 const ensureAdminUser = async () => {
   try {
@@ -137,6 +151,9 @@ const ensureAdminUser = async () => {
 // Inicializar servidor
 const startServer = async () => {
   try {
+    // Crear directorio de uploads
+    ensureUploadsDirectory();
+
     // Conectar a la base de datos
     await sequelize.authenticate();
     console.log('✅ Conexión a la base de datos establecida');

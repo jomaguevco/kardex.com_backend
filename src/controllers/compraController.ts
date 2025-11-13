@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Compra, DetalleCompra, Producto, Proveedor, Usuario, MovimientoKardex } from '../models';
 import { Op, Transaction } from 'sequelize';
 import sequelize from '../config/database';
+import notificacionService from '../services/notificacionService';
 
 export const getCompras = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -287,6 +288,9 @@ export const createCompra = async (req: Request, res: Response): Promise<void> =
     }
 
     await transaction.commit();
+
+    // Notificar compra registrada
+    await notificacionService.notificarCompra(compra.id, numeroFactura, totalFinal, usuario_id);
 
     res.status(201).json({
       success: true,
