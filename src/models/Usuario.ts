@@ -10,14 +10,15 @@ interface UsuarioAttributes {
   telefono?: string;
   foto_perfil?: string;
   preferencias?: string;
-  rol: 'ADMINISTRADOR' | 'VENDEDOR' | 'ALMACENERO' | 'CONTADOR';
+  rol: 'ADMINISTRADOR' | 'VENDEDOR' | 'CLIENTE' | 'ALMACENERO' | 'CONTADOR';
+  es_cliente_publico: boolean;
   activo: boolean;
   fecha_ultimo_acceso?: Date;
   fecha_creacion?: Date;
   fecha_actualizacion?: Date;
 }
 
-interface UsuarioCreationAttributes extends Optional<UsuarioAttributes, 'id' | 'activo' | 'fecha_ultimo_acceso' | 'fecha_creacion' | 'fecha_actualizacion'> {}
+interface UsuarioCreationAttributes extends Optional<UsuarioAttributes, 'id' | 'es_cliente_publico' | 'activo' | 'fecha_ultimo_acceso' | 'fecha_creacion' | 'fecha_actualizacion'> {}
 
 class Usuario extends Model<UsuarioAttributes, UsuarioCreationAttributes> implements UsuarioAttributes {
   public id!: number;
@@ -28,7 +29,8 @@ class Usuario extends Model<UsuarioAttributes, UsuarioCreationAttributes> implem
   public telefono?: string;
   public foto_perfil?: string;
   public preferencias?: string;
-  public rol!: 'ADMINISTRADOR' | 'VENDEDOR' | 'ALMACENERO' | 'CONTADOR';
+  public rol!: 'ADMINISTRADOR' | 'VENDEDOR' | 'CLIENTE' | 'ALMACENERO' | 'CONTADOR';
+  public es_cliente_publico!: boolean;
   public activo!: boolean;
   public fecha_ultimo_acceso?: Date;
   public readonly fecha_creacion!: Date;
@@ -73,9 +75,16 @@ Usuario.init(
       allowNull: true
     },
     rol: {
-      type: DataTypes.ENUM('ADMINISTRADOR', 'VENDEDOR', 'ALMACENERO', 'CONTADOR'),
+      type: DataTypes.ENUM('ADMINISTRADOR', 'VENDEDOR', 'CLIENTE', 'ALMACENERO', 'CONTADOR'),
       allowNull: false,
-      defaultValue: 'VENDEDOR'
+      defaultValue: 'VENDEDOR',
+      comment: 'ALMACENERO y CONTADOR son roles legacy, actualmente se usan: ADMINISTRADOR, VENDEDOR, CLIENTE'
+    },
+    es_cliente_publico: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Indica si el usuario se registró públicamente como cliente'
     },
     activo: {
       type: DataTypes.BOOLEAN,

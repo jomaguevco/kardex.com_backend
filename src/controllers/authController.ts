@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config';
 import Usuario from '../models/Usuario';
 import PasswordResetToken from '../models/PasswordResetToken';
+import { Cliente, ClienteUsuario } from '../models';
+import { getRolePermissions } from '../middleware/permissions';
+import sequelize from '../config/database';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -48,6 +51,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       { expiresIn: '24h' }
     );
 
+    // Obtener permisos del rol
+    const permisos = getRolePermissions(usuario.rol as any);
+
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -57,8 +63,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           id: usuario.id,
           nombre: usuario.nombre_completo,
           email: usuario.email,
-          rol: usuario.rol
-        }
+          rol: usuario.rol,
+          es_cliente_publico: usuario.es_cliente_publico,
+          foto_perfil: usuario.foto_perfil,
+          preferencias: usuario.preferencias
+        },
+        permisos
       }
     });
   } catch (error) {
@@ -470,6 +480,211 @@ export const actualizarPreferencias = async (req: Request, res: Response): Promi
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
+    });
+  }
+};
+
+/**
+ * Registro público de clientes
+ */
+export const registerCliente = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const {
+      nombre,
+      email,
+      telefono,
+      tipo_documento,
+      numero_documento,
+      direccion,
+      contrasena
+    } = req.body;
+
+    // Validaciones
+    if (!nombre || !email || !contrasena || !numero_documento) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'Faltan campos obligatorios: nombre, email, contraseña, número de documento'
+      });
+      return;
+    }
+
+    // Verificar si el email ya está registrado
+    const existingUsuario = await Usuario.findOne({
+      where: { email },
+      transaction
+    });
+
+    if (existingUsuario) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'El email ya está registrado'
+      });
+      return;
+    }
+
+    // Verificar si el documento ya está registrado
+    const existingCliente = await Cliente.findOne({
+      where: { numero_documento },
+      transaction
+    });
+
+    if (existingCliente) {
+      // Verificar si ya tiene usuario asociado
+      const clienteUsuario = await ClienteUsuario.findOne({
+        where: { cliente_id: existingCliente.id },
+        transaction
+      });
+
+      if (clienteUsuario) {
+        await transaction.rollback();
+        res.status(400).json({
+          success: false,
+          message: 'Este documento ya tiene una cuenta registrada'
+        });
+        return;
+      }
+    }
+
+    // Crear usuario con rol CLIENTE
+    const hashedPassword = require('crypto').createHash('sha256').update(contrasena).digest('hex');
+    const nombreUsuario = `cliente_${numero_documento}`;
+
+    const usuario = await Usuario.create({
+      nombre_usuario: nombreUsuario,
+      nombre_completo: nombre,
+      email,
+      telefono,
+      contrasena: hashedPassword,
+      rol: 'CLIENTE',
+      es_cliente_publico: true,
+      activo: true
+    }, { transaction });
+
+    // Crear o vincular cliente
+    let cliente;
+    if (existingCliente) {
+      cliente = existingCliente;
+    } else {
+      // Generar código de cliente
+      const ultimoCliente = await Cliente.findOne({
+        order: [['id', 'DESC']],
+        transaction
+      });
+      const correlativo = ultimoCliente ? ultimoCliente.id + 1 : 1;
+      const codigo = `CLI-${String(correlativo).padStart(6, '0')}`;
+
+      cliente = await Cliente.create({
+        codigo,
+        nombre,
+        tipo_documento: tipo_documento || 'DNI',
+        numero_documento,
+        direccion,
+        telefono,
+        email,
+        tipo_cliente: 'NATURAL',
+        activo: true
+      }, { transaction });
+    }
+
+    // Crear relación cliente-usuario
+    await ClienteUsuario.create({
+      usuario_id: usuario.id,
+      cliente_id: cliente.id,
+      fecha_vinculacion: new Date()
+    }, { transaction });
+
+    await transaction.commit();
+
+    // Generar token JWT
+    const token = jwt.sign(
+      {
+        id: usuario.id,
+        nombre_usuario: usuario.nombre_usuario,
+        nombre: usuario.nombre_completo,
+        rol: usuario.rol
+      },
+      config.jwt.secret,
+      { expiresIn: '24h' }
+    );
+
+    // Obtener permisos
+    const permisos = getRolePermissions('CLIENTE');
+
+    res.status(201).json({
+      success: true,
+      message: 'Registro exitoso. ¡Bienvenido!',
+      data: {
+        token,
+        user: {
+          id: usuario.id,
+          nombre: usuario.nombre_completo,
+          email: usuario.email,
+          rol: usuario.rol,
+          es_cliente_publico: true
+        },
+        cliente: {
+          id: cliente.id,
+          codigo: cliente.codigo,
+          numero_documento: cliente.numero_documento
+        },
+        permisos
+      }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error en registro de cliente:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al registrar cliente',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Obtener permisos del usuario autenticado
+ */
+export const getPermissions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioId = (req as any).user?.id;
+
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    const usuario = await Usuario.findByPk(usuarioId);
+
+    if (!usuario) {
+      res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+      return;
+    }
+
+    const permisos = getRolePermissions(usuario.rol as any);
+
+    res.json({
+      success: true,
+      data: {
+        rol: usuario.rol,
+        permisos
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener permisos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener permisos',
+      error: error instanceof Error ? error.message : 'Error desconocido'
     });
   }
 };

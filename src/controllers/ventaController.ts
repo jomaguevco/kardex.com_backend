@@ -10,8 +10,14 @@ export const getVentas = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page = 1, limit = 10, search = '', fecha_inicio, fecha_fin, cliente_id } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
+    const usuarioAutenticado = (req as any).user;
 
     const whereClause: any = {};
+
+    // Si es VENDEDOR, solo puede ver sus propias ventas
+    if (usuarioAutenticado && usuarioAutenticado.rol === 'VENDEDOR') {
+      whereClause.usuario_id = usuarioAutenticado.id;
+    }
 
     if (search) {
       whereClause[Op.or] = [
@@ -72,6 +78,7 @@ export const getVentas = async (req: Request, res: Response): Promise<void> => {
 export const getVentaById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const usuarioAutenticado = (req as any).user;
 
     const venta = await Venta.findByPk(id, {
       include: [
@@ -89,6 +96,15 @@ export const getVentaById = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({
         success: false,
         message: 'Venta no encontrada'
+      });
+      return;
+    }
+
+    // Si es VENDEDOR, solo puede ver sus propias ventas
+    if (usuarioAutenticado && usuarioAutenticado.rol === 'VENDEDOR' && venta.usuario_id !== usuarioAutenticado.id) {
+      res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para ver esta venta'
       });
       return;
     }

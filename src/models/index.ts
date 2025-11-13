@@ -16,6 +16,9 @@ import UnidadMedida from './UnidadMedida';
 import PasswordResetToken from './PasswordResetToken';
 import MonitoreoTransaccion from './MonitoreoTransaccion';
 import Notificacion from './Notificacion';
+import ClienteUsuario from './ClienteUsuario';
+import Pedido from './Pedido';
+import DetallePedido from './DetallePedido';
 
 // Definir asociaciones
 // Usuario
@@ -25,6 +28,9 @@ Usuario.hasMany(MovimientoKardex, { foreignKey: 'usuario_id', as: 'movimientos' 
 Usuario.hasMany(MovimientoKardex, { foreignKey: 'autorizado_por', as: 'movimientosAutorizados' });
 Usuario.hasMany(PasswordResetToken, { foreignKey: 'usuario_id', as: 'passwordResetTokens' });
 Usuario.hasMany(Notificacion, { foreignKey: 'usuario_id', as: 'notificaciones' });
+Usuario.hasOne(ClienteUsuario, { foreignKey: 'usuario_id', as: 'clienteUsuario' });
+Usuario.hasMany(Pedido, { foreignKey: 'usuario_id', as: 'pedidos' });
+Usuario.hasMany(Pedido, { foreignKey: 'aprobado_por', as: 'pedidosAprobados' });
 
 // Producto
 Producto.belongsTo(Categoria, { foreignKey: 'categoria_id', as: 'categoria' });
@@ -33,6 +39,7 @@ Producto.belongsTo(UnidadMedida, { foreignKey: 'unidad_medida_id', as: 'unidadMe
 Producto.hasMany(DetalleVenta, { foreignKey: 'producto_id', as: 'detallesVenta' });
 Producto.hasMany(DetalleCompra, { foreignKey: 'producto_id', as: 'detallesCompra' });
 Producto.hasMany(MovimientoKardex, { foreignKey: 'producto_id', as: 'movimientosKardex' });
+Producto.hasMany(DetallePedido, { foreignKey: 'producto_id', as: 'detallesPedido' });
 
 // Venta
 Venta.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
@@ -54,6 +61,8 @@ DetalleCompra.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' })
 
 // Cliente
 Cliente.hasMany(Venta, { foreignKey: 'cliente_id', as: 'ventas' });
+Cliente.hasOne(ClienteUsuario, { foreignKey: 'cliente_id', as: 'clienteUsuario' });
+Cliente.hasMany(Pedido, { foreignKey: 'cliente_id', as: 'pedidos' });
 
 // Proveedor
 Proveedor.hasMany(Compra, { foreignKey: 'proveedor_id', as: 'compras' });
@@ -91,6 +100,21 @@ PasswordResetToken.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' 
 // Notificacion
 Notificacion.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
 
+// ClienteUsuario
+ClienteUsuario.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+ClienteUsuario.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
+
+// Pedido
+Pedido.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
+Pedido.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+Pedido.belongsTo(Usuario, { foreignKey: 'aprobado_por', as: 'aprobador' });
+Pedido.belongsTo(Venta, { foreignKey: 'venta_id', as: 'venta' });
+Pedido.hasMany(DetallePedido, { foreignKey: 'pedido_id', as: 'detalles' });
+
+// DetallePedido
+DetallePedido.belongsTo(Pedido, { foreignKey: 'pedido_id', as: 'pedido' });
+DetallePedido.belongsTo(Producto, { foreignKey: 'producto_id', as: 'producto' });
+
 export {
   sequelize,
   Usuario,
@@ -109,5 +133,8 @@ export {
   UnidadMedida,
   PasswordResetToken,
   MonitoreoTransaccion,
-  Notificacion
+  Notificacion,
+  ClienteUsuario,
+  Pedido,
+  DetallePedido
 };

@@ -1,5 +1,17 @@
 import { Router } from 'express';
-import { login, register, getProfile, requestPasswordReset, resetPassword, changePassword, actualizarPerfil, uploadFotoPerfil, actualizarPreferencias } from '../controllers/authController';
+import { 
+  login, 
+  register, 
+  getProfile, 
+  requestPasswordReset, 
+  resetPassword, 
+  changePassword, 
+  actualizarPerfil, 
+  uploadFotoPerfil, 
+  actualizarPreferencias,
+  registerCliente,
+  getPermissions
+} from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import upload from '../middleware/upload';
@@ -46,6 +58,16 @@ const actualizarPreferenciasSchema = Joi.object({
   preferencias: Joi.object().required()
 });
 
+const registerClienteSchema = Joi.object({
+  nombre: Joi.string().min(2).max(200).required(),
+  email: Joi.string().email().required(),
+  telefono: Joi.string().max(20).optional(),
+  tipo_documento: Joi.string().valid('RUC', 'DNI', 'CE', 'PASAPORTE').optional(),
+  numero_documento: Joi.string().min(8).max(11).required(),
+  direccion: Joi.string().max(500).optional(),
+  contrasena: Joi.string().min(6).required()
+});
+
 // Rutas
 router.post('/login', validate(loginSchema), login);
 router.post('/register', validate(registerSchema), register);
@@ -58,6 +80,12 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
 router.put('/perfil', authenticateToken, validate(actualizarPerfilSchema), actualizarPerfil);
 router.post('/upload-foto', authenticateToken, upload.single('foto'), uploadFotoPerfil);
 router.put('/preferencias', authenticateToken, validate(actualizarPreferenciasSchema), actualizarPreferencias);
+
+// Registro público de cliente
+router.post('/register-cliente', validate(registerClienteSchema), registerCliente);
+
+// Obtener permisos del usuario
+router.get('/permissions', authenticateToken, getPermissions);
 
 export default router;
 
