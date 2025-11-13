@@ -10,6 +10,7 @@ import kardexRoutes from './kardex';
 import reporteRoutes from './reportes';
 import usuarioRoutes from './usuarios';
 import monitorRoutes from './monitor';
+import notificacionRoutes from './notificaciones';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/kardex', kardexRoutes);
 router.use('/reportes', reporteRoutes);
 router.use('/usuarios', usuarioRoutes);
 router.use('/monitor-transacciones', monitorRoutes);
+router.use('/notificaciones', notificacionRoutes);
 
 // Ruta de salud del servidor
 router.get('/health', (req, res) => {

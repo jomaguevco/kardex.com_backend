@@ -329,3 +329,147 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     });
   }
 };
+
+export const actualizarPerfil = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioId = (req as any).user?.id;
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    const { nombre_completo, email, telefono } = req.body;
+
+    const usuario = await Usuario.findByPk(usuarioId);
+    if (!usuario) {
+      res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+      return;
+    }
+
+    // Actualizar datos
+    await usuario.update({
+      nombre_completo,
+      email,
+      telefono
+    });
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      data: {
+        id: usuario.id,
+        nombre_usuario: usuario.nombre_usuario,
+        nombre_completo: usuario.nombre_completo,
+        email: usuario.email,
+        telefono: usuario.telefono,
+        foto_perfil: usuario.foto_perfil,
+        rol: usuario.rol
+      }
+    });
+  } catch (error) {
+    console.error('Error al actualizar perfil:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
+export const uploadFotoPerfil = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioId = (req as any).user?.id;
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: 'No se ha proporcionado ningún archivo'
+      });
+      return;
+    }
+
+    const usuario = await Usuario.findByPk(usuarioId);
+    if (!usuario) {
+      res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+      return;
+    }
+
+    // Construir URL de la foto
+    const fotoUrl = `/uploads/perfiles/${req.file.filename}`;
+
+    // Actualizar foto de perfil
+    await usuario.update({ foto_perfil: fotoUrl });
+
+    res.json({
+      success: true,
+      message: 'Foto de perfil actualizada exitosamente',
+      data: {
+        foto_perfil: fotoUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error al subir foto de perfil:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
+export const actualizarPreferencias = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioId = (req as any).user?.id;
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    const { preferencias } = req.body;
+
+    const usuario = await Usuario.findByPk(usuarioId);
+    if (!usuario) {
+      res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+      return;
+    }
+
+    // Guardar preferencias como JSON string
+    await usuario.update({
+      preferencias: JSON.stringify(preferencias)
+    });
+
+    res.json({
+      success: true,
+      message: 'Preferencias actualizadas exitosamente',
+      data: {
+        preferencias
+      }
+    });
+  } catch (error) {
+    console.error('Error al actualizar preferencias:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};

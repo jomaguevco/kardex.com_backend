@@ -15,6 +15,7 @@ import Marca from './Marca';
 import UnidadMedida from './UnidadMedida';
 import PasswordResetToken from './PasswordResetToken';
 import MonitoreoTransaccion from './MonitoreoTransaccion';
+import Notificacion from './Notificacion';
 
 // Definir asociaciones
 // Usuario
@@ -23,6 +24,7 @@ Usuario.hasMany(Compra, { foreignKey: 'usuario_id', as: 'compras' });
 Usuario.hasMany(MovimientoKardex, { foreignKey: 'usuario_id', as: 'movimientos' });
 Usuario.hasMany(MovimientoKardex, { foreignKey: 'autorizado_por', as: 'movimientosAutorizados' });
 Usuario.hasMany(PasswordResetToken, { foreignKey: 'usuario_id', as: 'passwordResetTokens' });
+Usuario.hasMany(Notificacion, { foreignKey: 'usuario_id', as: 'notificaciones' });
 
 // Producto
 Producto.belongsTo(Categoria, { foreignKey: 'categoria_id', as: 'categoria' });
@@ -86,6 +88,9 @@ sequelize.sync({ alter: false });
 // PasswordResetToken
 PasswordResetToken.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
 
+// Notificacion
+Notificacion.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
 export {
   sequelize,
   Usuario,
@@ -103,5 +108,6 @@ export {
   Marca,
   UnidadMedida,
   PasswordResetToken,
-  MonitoreoTransaccion
+  MonitoreoTransaccion,
+  Notificacion
 };

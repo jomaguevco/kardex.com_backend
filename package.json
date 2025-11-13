@@ -11,7 +11,9 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "adapt-db": "ts-node src/scripts/adapt-existing-db.ts",
-    "seed": "ts-node src/scripts/seedCompleteData.ts"
+    "seed": "ts-node src/scripts/seedCompleteData.ts",
+    "seed:massive": "ts-node src/scripts/seedMassiveData.ts",
+    "seed:kardex": "ts-node src/scripts/seedKardexMovimientos.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

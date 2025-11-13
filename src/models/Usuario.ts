@@ -8,6 +8,8 @@ interface UsuarioAttributes {
   nombre_completo: string;
   email?: string;
   telefono?: string;
+  foto_perfil?: string;
+  preferencias?: string;
   rol: 'ADMINISTRADOR' | 'VENDEDOR' | 'ALMACENERO' | 'CONTADOR';
   activo: boolean;
   fecha_ultimo_acceso?: Date;
@@ -24,6 +26,8 @@ class Usuario extends Model<UsuarioAttributes, UsuarioCreationAttributes> implem
   public nombre_completo!: string;
   public email?: string;
   public telefono?: string;
+  public foto_perfil?: string;
+  public preferencias?: string;
   public rol!: 'ADMINISTRADOR' | 'VENDEDOR' | 'ALMACENERO' | 'CONTADOR';
   public activo!: boolean;
   public fecha_ultimo_acceso?: Date;
@@ -58,6 +62,14 @@ Usuario.init(
     },
     telefono: {
       type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    foto_perfil: {
+      type: DataTypes.STRING(500),
+      allowNull: true
+    },
+    preferencias: {
+      type: DataTypes.TEXT,
       allowNull: true
     },
     rol: {
