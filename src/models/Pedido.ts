@@ -43,6 +43,13 @@ class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implement
   public motivo_rechazo?: string;
   public readonly fecha_creacion!: Date;
   public readonly fecha_actualizacion!: Date;
+
+  // Asociaciones
+  public readonly detalles?: any[];
+  public readonly cliente?: any;
+  public readonly usuario?: any;
+  public readonly aprobador?: any;
+  public readonly venta?: any;
 }
 
 Pedido.init(

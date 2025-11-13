@@ -19,6 +19,10 @@ class ClienteUsuario extends Model<ClienteUsuarioAttributes, ClienteUsuarioCreat
   public fecha_vinculacion?: Date;
   public readonly fecha_creacion!: Date;
   public readonly fecha_actualizacion!: Date;
+
+  // Asociaciones
+  public readonly cliente?: any;
+  public readonly usuario?: any;
 }
 
 ClienteUsuario.init(
