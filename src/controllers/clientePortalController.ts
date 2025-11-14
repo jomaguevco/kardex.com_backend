@@ -60,7 +60,7 @@ export const getMisCompras = async (req: Request, res: Response): Promise<void> 
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'nombre', 'codigo']
+              attributes: ['id', 'nombre', 'codigo_interno']
             }
           ]
         }

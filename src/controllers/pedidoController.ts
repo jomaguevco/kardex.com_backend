@@ -38,7 +38,7 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
   
   try {
     const usuarioId = (req as any).user?.id;
-    const { tipo_pedido, productos, observaciones } = req.body;
+    const { tipo_pedido, detalles, observaciones } = req.body;
 
     if (!usuarioId) {
       await transaction.rollback();
@@ -50,7 +50,7 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
     }
 
     // Validaciones
-    if (!productos || !Array.isArray(productos) || productos.length === 0) {
+    if (!detalles || !Array.isArray(detalles) || detalles.length === 0) {
       await transaction.rollback();
       res.status(400).json({
         success: false,
@@ -85,9 +85,9 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
 
     // Calcular totales y validar stock
     let subtotal = 0;
-    const productosValidados = [];
+    const detallesValidados = [];
 
-    for (const item of productos) {
+    for (const item of detalles) {
       const producto = await Producto.findByPk(item.producto_id, { transaction });
       
       if (!producto) {
@@ -123,7 +123,7 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
       
       subtotal += subtotalProducto;
 
-      productosValidados.push({
+      detallesValidados.push({
         producto_id: producto.id,
         cantidad: item.cantidad,
         precio_unitario: precioUnitario,
@@ -154,7 +154,7 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
     }, { transaction });
 
     // Crear detalles del pedido
-    for (const item of productosValidados) {
+    for (const item of detallesValidados) {
       await DetallePedido.create({
         pedido_id: pedido.id,
         ...item
