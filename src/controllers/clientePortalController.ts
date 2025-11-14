@@ -108,7 +108,7 @@ export const getCatalogo = async (req: Request, res: Response): Promise<void> =>
     if (search) {
       whereClause[Op.or] = [
         { nombre: { [Op.like]: `%${search}%` } },
-        { codigo: { [Op.like]: `%${search}%` } },
+        { codigo_interno: { [Op.like]: `%${search}%` } },
         { descripcion: { [Op.like]: `%${search}%` } }
       ];
     }
@@ -118,14 +118,15 @@ export const getCatalogo = async (req: Request, res: Response): Promise<void> =>
     }
 
     const { count, rows: productos } = await Producto.findAndCountAll({
-      where: whereClause,
+      where: whereClause as any,
       attributes: [
         'id',
-        'codigo',
+        'codigo_interno',
         'nombre',
         'descripcion',
         'precio_venta',
         'stock_actual',
+        'stock_minimo',
         'imagen_url',
         'categoria_id',
         'marca_id'

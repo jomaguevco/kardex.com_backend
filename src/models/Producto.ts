@@ -22,6 +22,7 @@ interface ProductoAttributes {
   dimensiones?: string;
   tiene_caducidad: boolean;
   dias_caducidad: number;
+  imagen_url?: string;
   activo: boolean;
   fecha_creacion?: Date;
   fecha_actualizacion?: Date;
@@ -50,6 +51,7 @@ class Producto extends Model<ProductoAttributes, ProductoCreationAttributes> imp
   public dimensiones?: string;
   public tiene_caducidad!: boolean;
   public dias_caducidad!: number;
+  public imagen_url?: string;
   public activo!: boolean;
   public readonly fecha_creacion!: Date;
   public readonly fecha_actualizacion!: Date;
@@ -158,6 +160,10 @@ Producto.init(
       type: DataTypes.INTEGER,
       allowNull: true,
       defaultValue: 0
+    },
+    imagen_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true
     },
     activo: {
       type: DataTypes.BOOLEAN,
