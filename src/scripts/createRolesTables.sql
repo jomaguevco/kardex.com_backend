@@ -4,8 +4,10 @@
 -- ================================================================
 
 -- Modificar tabla usuarios para agregar campos de cliente
+-- Nota: MySQL no soporta IF NOT EXISTS en ALTER TABLE ADD COLUMN
+-- El script de migración manejará el error si la columna ya existe
 ALTER TABLE usuarios 
-ADD COLUMN IF NOT EXISTS es_cliente_publico TINYINT(1) DEFAULT 0 COMMENT 'Indica si el usuario se registró públicamente como cliente';
+ADD COLUMN es_cliente_publico TINYINT(1) DEFAULT 0 COMMENT 'Indica si el usuario se registró públicamente como cliente';
 
 -- Modificar el ENUM de rol para incluir CLIENTE
 ALTER TABLE usuarios 

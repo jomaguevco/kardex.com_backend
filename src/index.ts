@@ -110,6 +110,37 @@ eventBus.on('monitor:transaction-finished', (payload) => {
   }
 });
 
+// Verificar schema de base de datos
+const verifyDatabaseSchema = async () => {
+  try {
+    const [columns]: any = await sequelize.query(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'usuarios' 
+        AND COLUMN_NAME IN ('es_cliente_publico', 'rol')
+    `);
+
+    const hasEsClientePublico = columns.some((col: any) => col.COLUMN_NAME === 'es_cliente_publico');
+    const hasRol = columns.some((col: any) => col.COLUMN_NAME === 'rol');
+
+    if (!hasEsClientePublico) {
+      console.warn('⚠️  Columna es_cliente_publico no existe en tabla usuarios');
+      console.warn('💡 Ejecuta: npx tsx src/scripts/migrateProduction.ts');
+    }
+
+    if (!hasRol) {
+      console.warn('⚠️  Columna rol no existe en tabla usuarios');
+    }
+
+    if (hasEsClientePublico && hasRol) {
+      console.log('✅ Schema de base de datos verificado correctamente');
+    }
+  } catch (error) {
+    console.error('⚠️ Error verificando schema de base de datos:', error);
+  }
+};
+
 // Crear directorio de uploads si no existe
 const ensureUploadsDirectory = () => {
   const fs = require('fs');
@@ -162,6 +193,9 @@ const startServer = async () => {
     // En producción solo crea las tablas, no las modifica ni borra
     await sequelize.sync({ force: false, alter: false });
     console.log('✅ Modelos sincronizados (tablas verificadas)');
+
+    // Verificar schema de base de datos
+    await verifyDatabaseSchema();
     
     // Verificar/crear tabla password_reset_tokens si no existe
     try {
