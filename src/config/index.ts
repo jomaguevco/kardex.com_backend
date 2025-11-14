@@ -22,11 +22,37 @@ export const config = {
   cors: {
     origin: (() => {
       const origins = process.env.CORS_ORIGIN || 'http://localhost:3000';
+      
+      // Si es un wildcard o función, retornar directamente
+      if (origins === '*') return '*';
+      
       // Soportar múltiples orígenes separados por coma
       const originList = origins.split(',').map(o => {
         const trimmed = o.trim();
         return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
       });
+      
+      // Si hay un patrón de Vercel, crear función de validación
+      if (originList.some(o => o.includes('vercel.app'))) {
+        return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          // Permitir requests sin origin (como Postman)
+          if (!origin) return callback(null, true);
+          
+          // Permitir todos los subdominios de vercel.app del proyecto
+          if (origin.includes('vercel.app') && 
+              (origin.includes('kardex-com') || origin.includes('jomaguevcos'))) {
+            return callback(null, true);
+          }
+          
+          // Verificar si está en la lista explícita
+          if (originList.includes(origin)) {
+            return callback(null, true);
+          }
+          
+          callback(new Error('Not allowed by CORS'));
+        };
+      }
+      
       return originList.length === 1 ? originList[0] : originList;
     })()
   },
