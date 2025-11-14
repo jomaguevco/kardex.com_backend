@@ -17,7 +17,7 @@ const generarNumeroPedido = async (): Promise<string> => {
       numero_pedido: {
         [Op.like]: `PED-${año}${mes}%`
       }
-    },
+    } as any,
     order: [['id', 'DESC']]
   });
 
@@ -385,7 +385,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
         numero_factura: {
           [Op.like]: `F001-${año}${mes}%`
         }
-      },
+      } as any,
       order: [['id', 'DESC']],
       transaction
     });

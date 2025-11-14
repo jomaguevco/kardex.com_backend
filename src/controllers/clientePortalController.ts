@@ -190,7 +190,7 @@ export const getMisFacturas = async (req: Request, res: Response): Promise<void>
         numero_factura: {
           [Op.ne]: null
         }
-      },
+      } as any,
       attributes: [
         'id',
         'numero_factura',
@@ -257,14 +257,14 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
       where: {
         cliente_id: clienteUsuario.cliente_id,
         estado: 'PROCESADA'
-      }
+      } as any
     });
 
     const totalGastado = await Venta.sum('total', {
       where: {
         cliente_id: clienteUsuario.cliente_id,
         estado: 'PROCESADA'
-      }
+      } as any
     }) || 0;
 
     // Compras por mes (últimos 6 meses)
@@ -278,7 +278,7 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
         fecha_venta: {
           [Op.gte]: seisMesesAtras
         }
-      },
+      } as any,
       attributes: [
         [sequelize.fn('DATE_FORMAT', sequelize.col('fecha_venta'), '%Y-%m'), 'mes'],
         [sequelize.fn('COUNT', sequelize.col('id')), 'cantidad'],
@@ -298,7 +298,7 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
           where: {
             cliente_id: clienteUsuario.cliente_id,
             estado: 'PROCESADA'
-          },
+          } as any,
           attributes: []
         },
         {
@@ -373,7 +373,7 @@ export const getDetalleCompra = async (req: Request, res: Response): Promise<voi
       where: {
         id,
         cliente_id: clienteUsuario.cliente_id
-      },
+      } as any,
       include: [
         {
           model: DetalleVenta,
