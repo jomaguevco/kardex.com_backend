@@ -21,9 +21,13 @@ export const config = {
   
   cors: {
     origin: (() => {
-      const origin = process.env.CORS_ORIGIN || 'http://localhost:3000';
-      // Normalizar: remover barra final si existe
-      return origin.endsWith('/') ? origin.slice(0, -1) : origin;
+      const origins = process.env.CORS_ORIGIN || 'http://localhost:3000';
+      // Soportar múltiples orígenes separados por coma
+      const originList = origins.split(',').map(o => {
+        const trimmed = o.trim();
+        return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+      });
+      return originList.length === 1 ? originList[0] : originList;
     })()
   },
   
