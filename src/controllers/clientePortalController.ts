@@ -197,9 +197,8 @@ export const getMisFacturas = async (req: Request, res: Response): Promise<void>
         'fecha_venta',
         'subtotal',
         'descuento',
-        'impuesto',
-        'total',
-        'metodo_pago'
+        'impuestos',
+        'total'
       ],
       order: [['fecha_venta', 'DESC']]
     });
