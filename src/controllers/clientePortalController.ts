@@ -37,7 +37,7 @@ export const getMisCompras = async (req: Request, res: Response): Promise<void> 
     // Filtros de fecha
     const whereClause: any = {
       cliente_id: clienteUsuario.cliente_id,
-      estado: 'COMPLETADO'
+      estado: 'PROCESADA'
     };
 
     if (fecha_desde || fecha_hasta) {
@@ -186,7 +186,7 @@ export const getMisFacturas = async (req: Request, res: Response): Promise<void>
     const ventas = await Venta.findAll({
       where: {
         cliente_id: clienteUsuario.cliente_id,
-        estado: 'COMPLETADO',
+        estado: 'PROCESADA',
         numero_factura: {
           [Op.ne]: null
         }
@@ -257,14 +257,14 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
     const totalCompras = await Venta.count({
       where: {
         cliente_id: clienteUsuario.cliente_id,
-        estado: 'COMPLETADO'
+        estado: 'PROCESADA'
       }
     });
 
     const totalGastado = await Venta.sum('total', {
       where: {
         cliente_id: clienteUsuario.cliente_id,
-        estado: 'COMPLETADO'
+        estado: 'PROCESADA'
       }
     }) || 0;
 
@@ -275,7 +275,7 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
     const comprasPorMes = await Venta.findAll({
       where: {
         cliente_id: clienteUsuario.cliente_id,
-        estado: 'COMPLETADO',
+        estado: 'PROCESADA',
         fecha_venta: {
           [Op.gte]: seisMesesAtras
         }
@@ -298,7 +298,7 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
           as: 'venta',
           where: {
             cliente_id: clienteUsuario.cliente_id,
-            estado: 'COMPLETADO'
+            estado: 'PROCESADA'
           },
           attributes: []
         },

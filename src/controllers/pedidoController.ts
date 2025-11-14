@@ -403,18 +403,20 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       cliente_id: pedido.cliente_id,
       usuario_id: usuarioAprobadorId,
       numero_factura: numeroFactura,
-      tipo_comprobante: 'FACTURA',
       fecha_venta: new Date(),
       subtotal: pedido.subtotal,
       descuento: pedido.descuento,
-      impuesto: pedido.impuesto,
+      impuestos: pedido.impuesto,
       total: pedido.total,
-      metodo_pago,
-      estado: 'COMPLETADO',
+      estado: 'PROCESADA',
       observaciones: `Generado desde pedido ${pedido.numero_pedido}`
     }, { transaction });
 
     // Copiar detalles del pedido a detalles de venta y actualizar stock
+    if (!pedido.detalles || pedido.detalles.length === 0) {
+      throw new Error('El pedido no tiene detalles');
+    }
+
     for (const detalle of pedido.detalles) {
       await DetalleVenta.create({
         venta_id: venta.id,
