@@ -472,13 +472,15 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       venta_id: venta.id
     }, { transaction });
 
-    // Notificar al cliente
-    await notificacionService.notificarVenta(
-      venta.id,
-      numeroFactura,
-      venta.total,
-      pedido.usuario_id
-    );
+    // Notificar al cliente (solo si tiene usuario_id)
+    if (pedido.usuario_id) {
+      await notificacionService.notificarVenta(
+        venta.id,
+        numeroFactura,
+        venta.total,
+        pedido.usuario_id
+      );
+    }
 
     await transaction.commit();
 
@@ -543,15 +545,17 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
       fecha_aprobacion: new Date()
     });
 
-    // Notificar al cliente
-    await notificacionService.crearNotificacion({
-      usuario_id: pedido.usuario_id,
-      tipo: 'SISTEMA',
-      titulo: '❌ Pedido rechazado',
-      mensaje: `Tu pedido ${pedido.numero_pedido} ha sido rechazado. Motivo: ${motivo_rechazo}`,
-      referencia_id: pedido.id,
-      referencia_tipo: 'pedido'
-    });
+    // Notificar al cliente (solo si tiene usuario_id)
+    if (pedido.usuario_id) {
+      await notificacionService.crearNotificacion({
+        usuario_id: pedido.usuario_id,
+        tipo: 'SISTEMA',
+        titulo: '❌ Pedido rechazado',
+        mensaje: `Tu pedido ${pedido.numero_pedido} ha sido rechazado. Motivo: ${motivo_rechazo}`,
+        referencia_id: pedido.id,
+        referencia_tipo: 'pedido'
+      });
+    }
 
     res.json({
       success: true,
