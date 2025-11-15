@@ -142,3 +142,52 @@ export const generarNotificaciones = async (req: Request, res: Response): Promis
   }
 };
 
+/**
+ * Notificar pedido desde WhatsApp
+ * Esta ruta puede ser accedida sin autenticación si viene del chatbot
+ * pero debería tener un token especial o validación alternativa
+ */
+export const notificarPedidoWhatsApp = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { titulo, mensaje, metadata } = req.body;
+
+    if (!titulo || !mensaje) {
+      res.status(400).json({
+        success: false,
+        message: 'Título y mensaje son requeridos'
+      });
+      return;
+    }
+
+    // Verificar token especial para chatbot (debe estar en headers o env)
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido'
+      });
+      return;
+    }
+
+    const notificacionesCreadas = await notificacionService.notificarPedidoWhatsApp(
+      titulo,
+      mensaje,
+      metadata
+    );
+
+    res.json({
+      success: true,
+      message: 'Notificaciones creadas exitosamente',
+      notificaciones_creadas: notificacionesCreadas
+    });
+  } catch (error) {
+    console.error('Error al notificar pedido WhatsApp:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+

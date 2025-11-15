@@ -294,6 +294,44 @@ class NotificacionService {
       console.error('Error al notificar administradores:', error);
     }
   }
+
+  /**
+   * Notificar a administradores y vendedores sobre pedido desde WhatsApp
+   * NO crea pedido directamente, solo notifica
+   */
+  async notificarPedidoWhatsApp(titulo: string, mensaje: string, metadata?: any) {
+    try {
+      // Importar Usuario solo cuando se necesite para evitar dependencias circulares
+      const Usuario = (await import('../models/Usuario')).default;
+      
+      const usuarios = await Usuario.findAll({
+        where: {
+          rol: {
+            [Op.in]: ['ADMINISTRADOR', 'VENDEDOR']
+          },
+          activo: true
+        } as any
+      });
+
+      let notificacionesCreadas = 0;
+
+      for (const usuario of usuarios) {
+        await this.crearNotificacion({
+          usuario_id: usuario.id,
+          tipo: 'SISTEMA',
+          titulo,
+          mensaje,
+          referencia_tipo: 'whatsapp_pedido'
+        });
+        notificacionesCreadas++;
+      }
+
+      return notificacionesCreadas;
+    } catch (error) {
+      console.error('Error al notificar pedido WhatsApp:', error);
+      throw error;
+    }
+  }
 }
 
 export default new NotificacionService();

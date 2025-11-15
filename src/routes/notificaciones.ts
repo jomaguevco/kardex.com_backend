@@ -4,7 +4,10 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// Ruta especial para notificaciones desde WhatsApp (sin autenticación normal, requiere token especial)
+router.post('/whatsapp', notificacionController.notificarPedidoWhatsApp);
+
+// Todas las demás rutas requieren autenticación
 router.use(authenticateToken);
 
 // Obtener notificaciones del usuario
@@ -14,10 +17,10 @@ router.get('/', notificacionController.getNotificaciones);
 router.get('/resumen', notificacionController.getResumen);
 
 // Marcar una notificación como leída
-router.put('/:id/marcar-leida', notificacionController.marcarComoLeida);
+router.put('/:id/leer', notificacionController.marcarComoLeida);
 
 // Marcar todas las notificaciones como leídas
-router.put('/marcar-todas-leidas', notificacionController.marcarTodasComoLeidas);
+router.put('/leer-todas', notificacionController.marcarTodasComoLeidas);
 
 // Generar notificaciones automáticas
 router.post('/generar', notificacionController.generarNotificaciones);
