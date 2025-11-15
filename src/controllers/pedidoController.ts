@@ -3,6 +3,9 @@ import { Pedido, DetallePedido, Cliente, ClienteUsuario, Producto, Venta, Detall
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 import notificacionService from '../services/notificacionService';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 /**
  * Generar número de pedido único
@@ -619,6 +622,209 @@ export const getDetallePedido = async (req: Request, res: Response): Promise<voi
     res.status(500).json({
       success: false,
       message: 'Error al obtener detalle del pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Crear pedido desde WhatsApp (sin autenticación de usuario)
+ * Requiere token especial del chatbot
+ */
+export const crearPedidoWhatsApp = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { cliente_id, tipo_pedido, detalles, observaciones, telefono } = req.body;
+
+    // Validaciones
+    if (!cliente_id) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'cliente_id es requerido'
+      });
+      return;
+    }
+
+    if (!detalles || !Array.isArray(detalles) || detalles.length === 0) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'Debe incluir al menos un producto'
+      });
+      return;
+    }
+
+    if (!['PEDIDO_APROBACION', 'COMPRA_DIRECTA'].includes(tipo_pedido)) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'Tipo de pedido inválido'
+      });
+      return;
+    }
+
+    // Verificar que el cliente existe
+    const cliente = await Cliente.findByPk(cliente_id, { transaction });
+    if (!cliente) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Cliente no encontrado'
+      });
+      return;
+    }
+
+    // Calcular totales y validar stock
+    let subtotal = 0;
+    const detallesValidados = [];
+
+    for (const item of detalles) {
+      const producto = await Producto.findByPk(item.producto_id, { transaction });
+      
+      if (!producto) {
+        await transaction.rollback();
+        res.status(404).json({
+          success: false,
+          message: `Producto con ID ${item.producto_id} no encontrado`
+        });
+        return;
+      }
+
+      if (!producto.activo) {
+        await transaction.rollback();
+        res.status(400).json({
+          success: false,
+          message: `Producto ${producto.nombre} no está disponible`
+        });
+        return;
+      }
+
+      if (producto.stock_actual < item.cantidad) {
+        await transaction.rollback();
+        res.status(400).json({
+          success: false,
+          message: `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock_actual}`
+        });
+        return;
+      }
+
+      const precioUnitario = producto.precio_venta;
+      const descuento = item.descuento || 0;
+      const subtotalProducto = (precioUnitario * item.cantidad) - descuento;
+      
+      subtotal += subtotalProducto;
+
+      detallesValidados.push({
+        producto_id: producto.id,
+        cantidad: item.cantidad,
+        precio_unitario: precioUnitario,
+        descuento,
+        subtotal: subtotalProducto
+      });
+    }
+
+    const impuesto = subtotal * 0.18; // IGV 18%
+    const total = subtotal + impuesto;
+
+    // Crear pedido (sin usuario_id ya que viene de WhatsApp)
+    const numeroPedido = await generarNumeroPedido();
+    const estadoInicial = tipo_pedido === 'COMPRA_DIRECTA' ? 'APROBADO' : 'PENDIENTE';
+
+    const pedido = await Pedido.create({
+      cliente_id: cliente_id,
+      usuario_id: null, // No hay usuario para pedidos de WhatsApp
+      numero_pedido: numeroPedido,
+      tipo_pedido,
+      estado: estadoInicial,
+      subtotal,
+      descuento: 0,
+      impuesto,
+      total,
+      observaciones: observaciones || `Pedido desde WhatsApp - ${telefono || 'N/A'}`,
+      fecha_pedido: new Date()
+    }, { transaction });
+
+    // Crear detalles del pedido
+    for (const item of detallesValidados) {
+      await DetallePedido.create({
+        pedido_id: pedido.id,
+        ...item
+      }, { transaction });
+    }
+
+    // Si es compra directa, procesar inmediatamente
+    if (tipo_pedido === 'COMPRA_DIRECTA') {
+      // Buscar un usuario administrador para asignar como aprobador
+      const admin = await Usuario.findOne({
+        where: { rol: 'ADMINISTRADOR', activo: true },
+        transaction
+      });
+      
+      if (admin) {
+        await pedido.update({
+          aprobado_por: admin.id,
+          fecha_aprobacion: new Date()
+        }, { transaction });
+      }
+    } else {
+      // Notificar a administradores sobre nuevo pedido pendiente
+      await notificacionService.notificarAdministradores(
+        'SISTEMA',
+        '🛒 Nuevo pedido desde WhatsApp',
+        `Pedido ${numeroPedido} requiere aprobación por un total de S/. ${total.toFixed(2)}`,
+        pedido.id,
+        'pedido'
+      );
+    }
+
+    await transaction.commit();
+
+    // Cargar el pedido completo con relaciones
+    const pedidoCompleto = await Pedido.findByPk(pedido.id, {
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            }
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente'
+        }
+      ]
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Pedido ${tipo_pedido === 'COMPRA_DIRECTA' ? 'procesado' : 'creado'} correctamente`,
+      data: pedidoCompleto
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al crear pedido desde WhatsApp:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al crear pedido',
       error: error instanceof Error ? error.message : 'Error desconocido'
     });
   }

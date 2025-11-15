@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/auth';
 import { requireRole } from '../middleware/permissions';
 import {
   crearPedido,
+  crearPedidoWhatsApp,
   getPedidosPendientes,
   getMisPedidos,
   aprobarPedido,
@@ -11,6 +12,13 @@ import {
 } from '../controllers/pedidoController';
 
 const router = express.Router();
+
+/**
+ * @route   POST /api/pedidos/whatsapp
+ * @desc    Crear pedido desde WhatsApp (sin autenticación de usuario, requiere token especial)
+ * @access  Public (con token de chatbot)
+ */
+router.post('/whatsapp', crearPedidoWhatsApp);
 
 /**
  * @route   POST /api/pedidos

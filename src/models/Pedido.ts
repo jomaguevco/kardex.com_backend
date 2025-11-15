@@ -4,7 +4,7 @@ import sequelize from '../config/database';
 interface PedidoAttributes {
   id: number;
   cliente_id: number;
-  usuario_id: number;
+  usuario_id: number | null;
   numero_pedido: string;
   estado: 'PENDIENTE' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
   tipo_pedido: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
@@ -27,7 +27,7 @@ interface PedidoCreationAttributes extends Optional<PedidoAttributes, 'id' | 'de
 class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implements PedidoAttributes {
   public id!: number;
   public cliente_id!: number;
-  public usuario_id!: number;
+  public usuario_id!: number | null;
   public numero_pedido!: string;
   public estado!: 'PENDIENTE' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
   public tipo_pedido!: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
@@ -69,12 +69,12 @@ Pedido.init(
     },
     usuario_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'usuarios',
         key: 'id'
       },
-      comment: 'Usuario (cliente) que crea el pedido'
+      comment: 'Usuario (cliente) que crea el pedido. Null para pedidos desde WhatsApp'
     },
     numero_pedido: {
       type: DataTypes.STRING(50),
