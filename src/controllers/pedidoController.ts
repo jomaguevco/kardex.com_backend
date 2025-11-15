@@ -235,7 +235,13 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       whereClause.estado = estado;
     }
 
-    const { count, rows: pedidos } = await Pedido.findAndCountAll({
+    // Primero obtener el conteo total sin includes para evitar problemas con distinct
+    const totalCount = await Pedido.count({
+      where: whereClause
+    });
+
+    // Luego obtener los pedidos con sus relaciones
+    const pedidos = await Pedido.findAll({
       where: whereClause,
       include: [
         {
@@ -265,18 +271,17 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       ],
       order: [['fecha_pedido', 'DESC']],
       limit: parseInt(limit as string),
-      offset,
-      distinct: true // Importante para contar correctamente con includes
+      offset
     });
 
     res.json({
       success: true,
       data: pedidos,
       pagination: {
-        total: count,
+        total: totalCount,
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        pages: Math.ceil(count / parseInt(limit as string))
+        pages: Math.ceil(totalCount / parseInt(limit as string))
       }
     });
   } catch (error) {
