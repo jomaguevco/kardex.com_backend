@@ -248,7 +248,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
           model: Cliente,
           as: 'cliente',
           attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
-          required: true
+          required: false // Permitir pedidos sin cliente asociado (aunque deberían tenerlo)
         },
         {
           model: Usuario,

@@ -13,6 +13,7 @@ import monitorRoutes from './monitor';
 import notificacionRoutes from './notificaciones';
 import clientePortalRoutes from './clientePortal';
 import pedidoRoutes from './pedidos';
+import ajustesInventarioRoutes from './ajustesInventario';
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.use('/monitor-transacciones', monitorRoutes);
 router.use('/notificaciones', notificacionRoutes);
 router.use('/cliente-portal', clientePortalRoutes);
 router.use('/pedidos', pedidoRoutes);
+router.use('/ajustes-inventario', ajustesInventarioRoutes);
 
 // Ruta de salud del servidor
 router.get('/health', (req, res) => {
