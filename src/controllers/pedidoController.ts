@@ -237,16 +237,19 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
         {
           model: Cliente,
           as: 'cliente',
-          attributes: ['id', 'nombre', 'numero_documento']
+          attributes: ['id', 'nombre', 'numero_documento'],
+          required: true
         },
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'nombre_completo']
+          attributes: ['id', 'nombre_completo'],
+          required: false // Permitir null para pedidos desde WhatsApp
         },
         {
           model: DetallePedido,
           as: 'detalles',
+          required: false,
           include: [
             {
               model: Producto,
@@ -567,21 +570,25 @@ export const getDetallePedido = async (req: Request, res: Response): Promise<voi
       include: [
         {
           model: Cliente,
-          as: 'cliente'
+          as: 'cliente',
+          required: true
         },
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'nombre_completo', 'email']
+          attributes: ['id', 'nombre_completo', 'email'],
+          required: false // Permitir null para pedidos desde WhatsApp
         },
         {
           model: Usuario,
           as: 'aprobador',
-          attributes: ['id', 'nombre_completo']
+          attributes: ['id', 'nombre_completo'],
+          required: false
         },
         {
           model: DetallePedido,
           as: 'detalles',
+          required: false,
           include: [
             {
               model: Producto,
@@ -591,7 +598,8 @@ export const getDetallePedido = async (req: Request, res: Response): Promise<voi
         },
         {
           model: Venta,
-          as: 'venta'
+          as: 'venta',
+          required: false
         }
       ]
     });
