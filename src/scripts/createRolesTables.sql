@@ -44,7 +44,7 @@ COMMENT='Tabla puente entre clientes y usuarios del sistema';
 CREATE TABLE IF NOT EXISTS pedidos (
   id INT PRIMARY KEY AUTO_INCREMENT,
   cliente_id INT NOT NULL,
-  usuario_id INT NOT NULL COMMENT 'Usuario (cliente) que crea el pedido',
+  usuario_id INT NULL COMMENT 'Usuario (cliente) que crea el pedido. Null para pedidos desde WhatsApp',
   numero_pedido VARCHAR(50) NOT NULL UNIQUE,
   estado ENUM('PENDIENTE', 'APROBADO', 'PROCESADO', 'CANCELADO', 'RECHAZADO') NOT NULL DEFAULT 'PENDIENTE',
   tipo_pedido ENUM('PEDIDO_APROBACION', 'COMPRA_DIRECTA') NOT NULL DEFAULT 'PEDIDO_APROBACION' 
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
   fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
   FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
-  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE,
   FOREIGN KEY (aprobado_por) REFERENCES usuarios(id) ON DELETE SET NULL ON UPDATE CASCADE,
   FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE SET NULL ON UPDATE CASCADE,
   

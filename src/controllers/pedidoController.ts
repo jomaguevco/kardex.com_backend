@@ -226,25 +226,29 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
  */
 export const getPedidosPendientes = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = '1', limit = '10' } = req.query;
+    const { page = '1', limit = '10', estado } = req.query;
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
+    // Construir filtro de estado
+    const whereClause: any = {};
+    if (estado && estado !== 'TODOS') {
+      whereClause.estado = estado;
+    }
+
     const { count, rows: pedidos } = await Pedido.findAndCountAll({
-      where: {
-        estado: 'PENDIENTE'
-      },
+      where: whereClause,
       include: [
         {
           model: Cliente,
           as: 'cliente',
-          attributes: ['id', 'nombre', 'numero_documento'],
+          attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
           required: true
         },
         {
           model: Usuario,
           as: 'usuario',
-          attributes: ['id', 'nombre_completo'],
-          required: false // Permitir null para pedidos desde WhatsApp
+          attributes: ['id', 'nombre_completo', 'email'],
+          required: false // LEFT JOIN para permitir null (pedidos desde WhatsApp)
         },
         {
           model: DetallePedido,
@@ -254,14 +258,15 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'nombre', 'codigo']
+              attributes: ['id', 'nombre', 'codigo', 'precio_venta']
             } as any
           ]
         }
       ],
       order: [['fecha_pedido', 'DESC']],
       limit: parseInt(limit as string),
-      offset
+      offset,
+      distinct: true // Importante para contar correctamente con includes
     });
 
     res.json({
@@ -276,6 +281,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     });
   } catch (error) {
     console.error('Error al obtener pedidos pendientes:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({
       success: false,
       message: 'Error al obtener pedidos pendientes',
