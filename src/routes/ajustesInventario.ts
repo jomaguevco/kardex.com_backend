@@ -14,37 +14,37 @@ const router = express.Router();
 /**
  * @route   GET /api/ajustes-inventario/tipos-movimiento
  * @desc    Obtener tipos de movimiento disponibles
- * @access  Private (VENDEDOR, ADMINISTRADOR)
+ * @access  Private (ADMINISTRADOR)
  */
-router.get('/tipos-movimiento', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), getTiposMovimiento);
+router.get('/tipos-movimiento', authenticateToken, requireRole(['ADMINISTRADOR']), getTiposMovimiento);
 
 /**
  * @route   GET /api/ajustes-inventario
  * @desc    Obtener ajustes de inventario
- * @access  Private (VENDEDOR, ADMINISTRADOR)
+ * @access  Private (ADMINISTRADOR)
  */
-router.get('/', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), getAjustesInventario);
+router.get('/', authenticateToken, requireRole(['ADMINISTRADOR']), getAjustesInventario);
 
 /**
  * @route   POST /api/ajustes-inventario
  * @desc    Crear ajuste de inventario
- * @access  Private (VENDEDOR, ADMINISTRADOR)
+ * @access  Private (ADMINISTRADOR)
  */
-router.post('/', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), crearAjusteInventario);
+router.post('/', authenticateToken, requireRole(['ADMINISTRADOR']), crearAjusteInventario);
 
 /**
  * @route   PUT /api/ajustes-inventario/:id/aprobar
  * @desc    Aprobar ajuste de inventario pendiente
- * @access  Private (VENDEDOR, ADMINISTRADOR)
+ * @access  Private (ADMINISTRADOR)
  */
-router.put('/:id/aprobar', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), aprobarAjusteInventario);
+router.put('/:id/aprobar', authenticateToken, requireRole(['ADMINISTRADOR']), aprobarAjusteInventario);
 
 /**
  * @route   PUT /api/ajustes-inventario/:id/rechazar
  * @desc    Rechazar ajuste de inventario pendiente
- * @access  Private (VENDEDOR, ADMINISTRADOR)
+ * @access  Private (ADMINISTRADOR)
  */
-router.put('/:id/rechazar', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), rechazarAjusteInventario);
+router.put('/:id/rechazar', authenticateToken, requireRole(['ADMINISTRADOR']), rechazarAjusteInventario);
 
 export default router;
 

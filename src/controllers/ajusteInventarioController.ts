@@ -5,22 +5,107 @@ import sequelize from '../config/database';
 
 /**
  * Obtener tipos de movimiento disponibles para ajustes
+ * Retorna todos los tipos de movimiento del enum de MovimientoKardex
  */
 export const getTiposMovimiento = async (req: Request, res: Response): Promise<void> => {
   try {
-    const tipos = await TipoMovimientoKardex.findAll({
-      where: {
-        activo: true,
-        tipo_operacion: {
-          [Op.in]: ['ENTRADA', 'SALIDA']
-        }
+    // Tipos de movimiento disponibles según el enum de MovimientoKardex
+    const tiposMovimientoEnum = [
+      {
+        codigo: 'ENTRADA_COMPRA',
+        nombre: 'Entrada por Compra',
+        descripcion: 'Entrada de productos por compra a proveedores',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
       },
-      order: [['nombre', 'ASC']]
-    });
+      {
+        codigo: 'ENTRADA_DEVOLUCION_CLIENTE',
+        nombre: 'Entrada por Devolución de Cliente',
+        descripcion: 'Entrada de productos devueltos por clientes',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'ENTRADA_AJUSTE_POSITIVO',
+        nombre: 'Ajuste Positivo (Entrada)',
+        descripcion: 'Ajuste de inventario que aumenta el stock',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: false,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'ENTRADA_TRANSFERENCIA',
+        nombre: 'Entrada por Transferencia',
+        descripcion: 'Entrada de productos por transferencia entre almacenes',
+        tipo_operacion: 'ENTRADA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_VENTA',
+        nombre: 'Salida por Venta',
+        descripcion: 'Salida de productos por venta a clientes',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_DEVOLUCION_PROVEEDOR',
+        nombre: 'Salida por Devolución a Proveedor',
+        descripcion: 'Salida de productos devueltos a proveedores',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_AJUSTE_NEGATIVO',
+        nombre: 'Ajuste Negativo (Salida)',
+        descripcion: 'Ajuste de inventario que disminuye el stock',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: false,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_TRANSFERENCIA',
+        nombre: 'Salida por Transferencia',
+        descripcion: 'Salida de productos por transferencia entre almacenes',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: true,
+        requiere_autorizacion: false,
+        activo: true
+      },
+      {
+        codigo: 'SALIDA_MERMA',
+        nombre: 'Salida por Merma',
+        descripcion: 'Salida de productos por pérdidas, daños o vencimientos',
+        tipo_operacion: 'SALIDA',
+        afecta_stock: true,
+        requiere_documento: false,
+        requiere_autorizacion: true,
+        activo: true
+      }
+    ];
 
     res.json({
       success: true,
-      data: tipos
+      data: tiposMovimientoEnum
     });
   } catch (error) {
     console.error('Error al obtener tipos de movimiento:', error);
@@ -91,52 +176,41 @@ export const crearAjusteInventario = async (req: Request, res: Response): Promis
       return;
     }
 
-    // Determinar tipo de movimiento basado en el string o buscar en TipoMovimientoKardex
-    let tipoMovimiento = null;
-    let esEntrada = false;
-    let esSalida = false;
-    let tipoMovimientoEnum: any = tipo_movimiento;
+    // Validar que el tipo_movimiento sea uno de los valores válidos del enum
+    const tiposValidos = [
+      'ENTRADA_COMPRA',
+      'ENTRADA_DEVOLUCION_CLIENTE',
+      'ENTRADA_AJUSTE_POSITIVO',
+      'ENTRADA_TRANSFERENCIA',
+      'SALIDA_VENTA',
+      'SALIDA_DEVOLUCION_PROVEEDOR',
+      'SALIDA_AJUSTE_NEGATIVO',
+      'SALIDA_TRANSFERENCIA',
+      'SALIDA_MERMA'
+    ];
 
-    // Si tipo_movimiento es un código, buscar en TipoMovimientoKardex
-    if (tipo_movimiento && !tipo_movimiento.includes('ENTRADA') && !tipo_movimiento.includes('SALIDA')) {
-      tipoMovimiento = await TipoMovimientoKardex.findOne({
-        where: { codigo: tipo_movimiento, activo: true },
-        transaction
+    if (!tiposValidos.includes(tipo_movimiento)) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `Tipo de movimiento inválido. Debe ser uno de: ${tiposValidos.join(', ')}`
       });
-
-      if (!tipoMovimiento) {
-        await transaction.rollback();
-        res.status(404).json({
-          success: false,
-          message: 'Tipo de movimiento no encontrado o inactivo'
-        });
-        return;
-      }
-
-      esEntrada = tipoMovimiento.tipo_operacion === 'ENTRADA';
-      esSalida = tipoMovimiento.tipo_operacion === 'SALIDA';
-      
-      // Mapear a enum según el tipo de operación
-      if (esEntrada) {
-        tipoMovimientoEnum = 'ENTRADA_AJUSTE_POSITIVO';
-      } else if (esSalida) {
-        tipoMovimientoEnum = 'SALIDA_AJUSTE_NEGATIVO';
-      }
-    } else {
-      // Si viene como enum directo
-      esEntrada = tipo_movimiento.includes('ENTRADA');
-      esSalida = tipo_movimiento.includes('SALIDA');
-      
-      // Buscar tipo de movimiento por nombre si es posible
-      const nombreBusqueda = tipo_movimiento.replace('_', ' ').toLowerCase();
-      tipoMovimiento = await TipoMovimientoKardex.findOne({
-        where: {
-          activo: true,
-          tipo_operacion: esEntrada ? 'ENTRADA' : 'SALIDA'
-        },
-        transaction
-      });
+      return;
     }
+
+    // Determinar si es entrada o salida
+    const esEntrada = tipo_movimiento.includes('ENTRADA');
+    const esSalida = tipo_movimiento.includes('SALIDA');
+    const tipoMovimientoEnum: any = tipo_movimiento;
+
+    // Buscar tipo de movimiento en la tabla si existe (opcional)
+    let tipoMovimiento = await TipoMovimientoKardex.findOne({
+      where: {
+        activo: true,
+        tipo_operacion: esEntrada ? 'ENTRADA' : 'SALIDA'
+      },
+      transaction
+    });
 
     if (!esEntrada && !esSalida) {
       await transaction.rollback();
