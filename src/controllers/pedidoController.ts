@@ -248,23 +248,25 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
           model: Cliente,
           as: 'cliente',
           attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
-          required: false // Permitir pedidos sin cliente asociado (aunque deberían tenerlo)
+          required: false
         },
         {
           model: Usuario,
           as: 'usuario',
           attributes: ['id', 'nombre_completo', 'email'],
-          required: false // LEFT JOIN para permitir null (pedidos desde WhatsApp)
+          required: false
         },
         {
           model: DetallePedido,
           as: 'detalles',
           required: false,
+          attributes: ['id', 'pedido_id', 'producto_id', 'cantidad', 'precio_unitario', 'descuento', 'subtotal'],
           include: [
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'nombre', 'codigo', 'precio_venta']
+              attributes: ['id', 'nombre', 'codigo_interno', 'codigo_barras', 'precio_venta'],
+              required: false
             } as any
           ]
         }
