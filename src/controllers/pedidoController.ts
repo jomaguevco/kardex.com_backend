@@ -855,3 +855,503 @@ export const crearPedidoWhatsApp = async (req: Request, res: Response): Promise<
   }
 };
 
+
+/**
+ * Crear pedido vacío para WhatsApp (en proceso)
+ */
+export const crearPedidoVacio = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { cliente_id, telefono } = req.body;
+
+    if (!cliente_id) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'cliente_id es requerido'
+      });
+      return;
+    }
+
+    // Verificar que el cliente existe
+    const cliente = await Cliente.findByPk(cliente_id, { transaction });
+    if (!cliente) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Cliente no encontrado'
+      });
+      return;
+    }
+
+    // Generar número de pedido
+    const numeroPedido = await generarNumeroPedido();
+
+    // Crear pedido vacío con estado EN_PROCESO
+    const pedido = await Pedido.create({
+      cliente_id: cliente_id,
+      usuario_id: null, // Pedido desde WhatsApp
+      numero_pedido: numeroPedido,
+      tipo_pedido: 'COMPRA_DIRECTA',
+      estado: 'EN_PROCESO',
+      subtotal: 0,
+      descuento: 0,
+      impuesto: 0,
+      total: 0,
+      observaciones: `Pedido en proceso desde WhatsApp - ${telefono || 'N/A'}`,
+      fecha_pedido: new Date()
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: pedido.id,
+        numero_pedido: pedido.numero_pedido,
+        estado: pedido.estado,
+        total: 0,
+        detalles: []
+      }
+    });
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error al crear pedido vacío:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al crear pedido vacío',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Agregar producto a pedido en proceso
+ */
+export const agregarProductoAPedido = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { pedido_id, producto_id, cantidad } = req.body;
+
+    if (!pedido_id || !producto_id || !cantidad) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'pedido_id, producto_id y cantidad son requeridos'
+      });
+      return;
+    }
+
+    // Verificar que el pedido existe y está en proceso
+    const pedido = await Pedido.findByPk(pedido_id, { transaction });
+    if (!pedido) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    if (pedido.estado !== 'EN_PROCESO') {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `El pedido no está en proceso. Estado actual: ${pedido.estado}`
+      });
+      return;
+    }
+
+    // Verificar producto
+    const producto = await Producto.findByPk(producto_id, { transaction });
+    if (!producto) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Producto no encontrado'
+      });
+      return;
+    }
+
+    if (!producto.activo) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `Producto ${producto.nombre} no está disponible`
+      });
+      return;
+    }
+
+    if (producto.stock_actual < cantidad) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock_actual}`
+      });
+      return;
+    }
+
+    // Verificar si el producto ya está en el pedido
+    const detalleExistente = await DetallePedido.findOne({
+      where: {
+        pedido_id: pedido_id,
+        producto_id: producto_id
+      },
+      transaction
+    });
+
+    let detallePedido;
+    if (detalleExistente) {
+      // Actualizar cantidad existente
+      const nuevaCantidad = detalleExistente.cantidad + cantidad;
+      if (producto.stock_actual < nuevaCantidad) {
+        await transaction.rollback();
+        res.status(400).json({
+          success: false,
+          message: `Stock insuficiente. Ya tienes ${detalleExistente.cantidad} en el pedido. Disponible: ${producto.stock_actual}`
+        });
+        return;
+      }
+
+      const precioUnitario = producto.precio_venta;
+      const subtotal = precioUnitario * nuevaCantidad;
+
+      await detalleExistente.update({
+        cantidad: nuevaCantidad,
+        precio_unitario: precioUnitario,
+        subtotal: subtotal
+      }, { transaction });
+
+      detallePedido = detalleExistente;
+    } else {
+      // Crear nuevo detalle
+      const precioUnitario = producto.precio_venta;
+      const subtotal = precioUnitario * cantidad;
+
+      detallePedido = await DetallePedido.create({
+        pedido_id: pedido_id,
+        producto_id: producto_id,
+        cantidad: cantidad,
+        precio_unitario: precioUnitario,
+        descuento: 0,
+        subtotal: subtotal
+      }, { transaction });
+    }
+
+    // Recalcular totales del pedido
+    const detalles = await DetallePedido.findAll({
+      where: { pedido_id: pedido_id },
+      transaction
+    });
+
+    let subtotal = 0;
+    for (const det of detalles) {
+      subtotal += parseFloat(det.subtotal.toString());
+    }
+
+    const impuesto = subtotal * 0.18; // IGV 18%
+    const total = subtotal + impuesto;
+
+    await pedido.update({
+      subtotal: subtotal,
+      impuesto: impuesto,
+      total: total
+    }, { transaction });
+
+    await transaction.commit();
+
+    // Cargar pedido completo con detalles
+    const pedidoCompleto = await Pedido.findByPk(pedido_id, {
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            }
+          ]
+        }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: pedidoCompleto,
+      message: 'Producto agregado al pedido'
+    });
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error al agregar producto al pedido:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al agregar producto al pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Eliminar producto de pedido en proceso
+ */
+export const eliminarProductoDePedido = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { pedido_id, detalle_id } = req.body;
+
+    if (!pedido_id || !detalle_id) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'pedido_id y detalle_id son requeridos'
+      });
+      return;
+    }
+
+    // Verificar que el pedido existe y está en proceso
+    const pedido = await Pedido.findByPk(pedido_id, { transaction });
+    if (!pedido) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    if (pedido.estado !== 'EN_PROCESO') {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `El pedido no está en proceso. Estado actual: ${pedido.estado}`
+      });
+      return;
+    }
+
+    // Eliminar detalle
+    const detalle = await DetallePedido.findByPk(detalle_id, { transaction });
+    if (!detalle || detalle.pedido_id !== pedido_id) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Detalle de pedido no encontrado'
+      });
+      return;
+    }
+
+    await detalle.destroy({ transaction });
+
+    // Recalcular totales del pedido
+    const detalles = await DetallePedido.findAll({
+      where: { pedido_id: pedido_id },
+      transaction
+    });
+
+    let subtotal = 0;
+    for (const det of detalles) {
+      subtotal += parseFloat(det.subtotal.toString());
+    }
+
+    const impuesto = subtotal * 0.18;
+    const total = subtotal + impuesto;
+
+    await pedido.update({
+      subtotal: subtotal,
+      impuesto: impuesto,
+      total: total
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(200).json({
+      success: true,
+      message: 'Producto eliminado del pedido'
+    });
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error al eliminar producto del pedido:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al eliminar producto del pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Obtener pedido en proceso
+ */
+export const getPedidoEnProceso = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.params.token || req.query.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { pedido_id } = req.params;
+
+    const pedido = await Pedido.findByPk(pedido_id, {
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto',
+              attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta', 'stock_actual']
+            }
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente',
+          required: false
+        }
+      ]
+    });
+
+    if (!pedido) {
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: pedido
+    });
+  } catch (error: any) {
+    console.error('Error al obtener pedido en proceso:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Cancelar pedido en proceso
+ */
+export const cancelarPedidoEnProceso = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    // Verificar token especial para chatbot
+    const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+    const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+    if (expectedToken && chatToken !== expectedToken) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido para chatbot'
+      });
+      return;
+    }
+
+    const { pedido_id } = req.body;
+
+    if (!pedido_id) {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: 'pedido_id es requerido'
+      });
+      return;
+    }
+
+    const pedido = await Pedido.findByPk(pedido_id, { transaction });
+    if (!pedido) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    if (pedido.estado !== 'EN_PROCESO') {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `El pedido no está en proceso. Estado actual: ${pedido.estado}`
+      });
+      return;
+    }
+
+    // Cambiar estado a CANCELADO
+    await pedido.update({
+      estado: 'CANCELADO',
+      observaciones: `${pedido.observaciones || ''} - Cancelado desde WhatsApp`
+    }, { transaction });
+
+    await transaction.commit();
+
+    res.status(200).json({
+      success: true,
+      message: 'Pedido cancelado exitosamente'
+    });
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error al cancelar pedido:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cancelar pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};

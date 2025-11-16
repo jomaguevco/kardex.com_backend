@@ -4,6 +4,11 @@ import { requireRole } from '../middleware/permissions';
 import {
   crearPedido,
   crearPedidoWhatsApp,
+  crearPedidoVacio,
+  agregarProductoAPedido,
+  eliminarProductoDePedido,
+  getPedidoEnProceso,
+  cancelarPedidoEnProceso,
   getPedidosPendientes,
   getMisPedidos,
   aprobarPedido,
@@ -19,6 +24,41 @@ const router = express.Router();
  * @access  Public (con token de chatbot)
  */
 router.post('/whatsapp', crearPedidoWhatsApp);
+
+/**
+ * @route   POST /api/pedidos/whatsapp/vacio
+ * @desc    Crear pedido vacío en proceso desde WhatsApp
+ * @access  Public (con token de chatbot)
+ */
+router.post('/whatsapp/vacio', crearPedidoVacio);
+
+/**
+ * @route   POST /api/pedidos/whatsapp/agregar-producto
+ * @desc    Agregar producto a pedido en proceso
+ * @access  Public (con token de chatbot)
+ */
+router.post('/whatsapp/agregar-producto', agregarProductoAPedido);
+
+/**
+ * @route   POST /api/pedidos/whatsapp/eliminar-producto
+ * @desc    Eliminar producto de pedido en proceso
+ * @access  Public (con token de chatbot)
+ */
+router.post('/whatsapp/eliminar-producto', eliminarProductoDePedido);
+
+/**
+ * @route   GET /api/pedidos/whatsapp/:pedido_id
+ * @desc    Obtener pedido en proceso
+ * @access  Public (con token de chatbot)
+ */
+router.get('/whatsapp/:pedido_id', getPedidoEnProceso);
+
+/**
+ * @route   POST /api/pedidos/whatsapp/cancelar
+ * @desc    Cancelar pedido en proceso
+ * @access  Public (con token de chatbot)
+ */
+router.post('/whatsapp/cancelar', cancelarPedidoEnProceso);
 
 /**
  * @route   POST /api/pedidos

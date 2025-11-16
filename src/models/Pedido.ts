@@ -6,7 +6,7 @@ interface PedidoAttributes {
   cliente_id: number;
   usuario_id: number | null;
   numero_pedido: string;
-  estado: 'PENDIENTE' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
+  estado: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
   tipo_pedido: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
   subtotal: number;
   descuento: number;
@@ -29,7 +29,7 @@ class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implement
   public cliente_id!: number;
   public usuario_id!: number | null;
   public numero_pedido!: string;
-  public estado!: 'PENDIENTE' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
+  public estado!: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
   public tipo_pedido!: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
   public subtotal!: number;
   public descuento!: number;
@@ -82,7 +82,7 @@ Pedido.init(
       unique: true
     },
     estado: {
-      type: DataTypes.ENUM('PENDIENTE', 'APROBADO', 'PROCESADO', 'CANCELADO', 'RECHAZADO'),
+      type: DataTypes.ENUM('PENDIENTE', 'EN_PROCESO', 'APROBADO', 'PROCESADO', 'CANCELADO', 'RECHAZADO'),
       allowNull: false,
       defaultValue: 'PENDIENTE'
     },
