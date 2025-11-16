@@ -116,6 +116,31 @@ export const marcarTodasComoLeidas = async (req: Request, res: Response): Promis
   }
 };
 
+export const eliminarNotificacion = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioId = (req as any).user?.id;
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+    const { id } = req.params;
+    await notificacionService.eliminarNotificacion(parseInt(id), usuarioId);
+    res.json({
+      success: true,
+      message: 'Notificación eliminada'
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar notificación:', error);
+    res.status(error.message === 'Notificación no encontrada' ? 404 : 500).json({
+      success: false,
+      message: error.message || 'Error interno del servidor'
+    });
+  }
+};
+
 export const generarNotificaciones = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioId = (req as any).user?.id;

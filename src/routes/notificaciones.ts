@@ -22,6 +22,9 @@ router.put('/:id/leer', notificacionController.marcarComoLeida);
 // Marcar todas las notificaciones como leídas
 router.put('/leer-todas', notificacionController.marcarTodasComoLeidas);
 
+// Eliminar una notificación del usuario
+router.delete('/:id', notificacionController.eliminarNotificacion);
+
 // Generar notificaciones automáticas
 router.post('/generar', notificacionController.generarNotificaciones);
 

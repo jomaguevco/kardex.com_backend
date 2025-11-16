@@ -188,6 +188,19 @@ class NotificacionService {
     );
   }
 
+  async eliminarNotificacion(notificacionId: number, usuarioId: number) {
+    const notificacion = await Notificacion.findOne({
+      where: {
+        id: notificacionId,
+        usuario_id: usuarioId
+      }
+    });
+    if (!notificacion) {
+      throw new Error('Notificación no encontrada');
+    }
+    await notificacion.destroy();
+  }
+
   async crearNotificacion(data: {
     usuario_id: number;
     tipo: 'STOCK_BAJO' | 'COMPRA_PENDIENTE' | 'VENTA_PENDIENTE' | 'TRANSACCION' | 'SISTEMA';
