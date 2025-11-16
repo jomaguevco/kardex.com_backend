@@ -8,7 +8,10 @@ import {
   createCliente,
   updateCliente,
   deleteCliente,
-  getClientesActivos
+  getClientesActivos,
+  getClienteByPhone,
+  linkPhoneToCliente,
+  registerClienteLite
 } from '../controllers/clienteController';
 
 const router = Router();
@@ -36,13 +39,27 @@ const updateClienteSchema = Joi.object({
   tipo_cliente: Joi.string().valid('NATURAL', 'JURIDICA').optional()
 });
 
+const linkPhoneSchema = Joi.object({
+  clientId: Joi.number().required(),
+  phone: Joi.string().max(20).required()
+});
+
+const registerLiteSchema = Joi.object({
+  name: Joi.string().max(200).required(),
+  dni: Joi.string().max(20).required(),
+  phone: Joi.string().max(20).required()
+});
+
 // Rutas
 router.get('/', authenticateToken, getClientes);
 router.get('/activos', authenticateToken, getClientesActivos);
+router.get('/by-phone/:phone', authenticateToken, getClienteByPhone);
 router.get('/:id', authenticateToken, getClienteById);
 router.post('/', authenticateToken, validate(createClienteSchema), createCliente);
 router.put('/:id', authenticateToken, validate(updateClienteSchema), updateCliente);
 router.delete('/:id', authenticateToken, deleteCliente);
+router.post('/link-phone', authenticateToken, validate(linkPhoneSchema), linkPhoneToCliente);
+router.post('/register-lite', authenticateToken, validate(registerLiteSchema), registerClienteLite);
 
 export default router;
 

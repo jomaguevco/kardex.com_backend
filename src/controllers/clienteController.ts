@@ -275,3 +275,109 @@ export const getClientesActivos = async (req: Request, res: Response): Promise<v
   }
 };
 
+/**
+ * Obtener cliente por teléfono
+ */
+export const getClienteByPhone = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { phone } = req.params as { phone: string };
+    const numero = (phone || '').replace(/[^0-9]/g, '');
+    if (!numero) {
+      res.status(400).json({ success: false, message: 'Teléfono inválido' });
+      return;
+    }
+    const cliente = await Cliente.findOne({
+      where: {
+        telefono: { [Op.like]: `%${numero}%` },
+        activo: true
+      }
+    });
+    res.json({
+      success: true,
+      data: cliente || null
+    });
+  } catch (error) {
+    console.error('Error al obtener cliente por teléfono:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
+/**
+ * Vincular teléfono a cliente existente
+ */
+export const linkPhoneToCliente = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { clientId, phone } = req.body as { clientId: number; phone: string };
+    if (!clientId || !phone) {
+      res.status(400).json({ success: false, message: 'clientId y phone son requeridos' });
+      return;
+    }
+    const numero = (phone || '').replace(/[^0-9]/g, '');
+    const cliente = await Cliente.findByPk(clientId);
+    if (!cliente) {
+      res.status(404).json({ success: false, message: 'Cliente no encontrado' });
+      return;
+    }
+    await cliente.update({ telefono: numero });
+    res.json({ success: true, data: cliente });
+  } catch (error) {
+    console.error('Error al vincular teléfono a cliente:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
+/**
+ * Registro ligero de cliente (nombre, dni, phone)
+ */
+export const registerClienteLite = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, dni, phone } = req.body as { name: string; dni: string; phone: string };
+    if (!name || !dni || !phone) {
+      res.status(400).json({ success: false, message: 'name, dni y phone son requeridos' });
+      return;
+    }
+    const numero = (phone || '').replace(/[^0-9]/g, '');
+    // Evitar duplicados por DNI
+    const existingByDni = await Cliente.findOne({ where: { numero_documento: dni } });
+    if (existingByDni) {
+      // Actualizar teléfono si falta
+      if (!existingByDni.telefono) {
+        await existingByDni.update({ telefono: numero });
+      }
+      res.json({ success: true, data: existingByDni, message: 'Cliente existente actualizado' });
+      return;
+    }
+    // Evitar duplicados por teléfono
+    const existingByPhone = await Cliente.findOne({
+      where: { telefono: { [Op.like]: `%${numero}%` } }
+    });
+    if (existingByPhone) {
+      res.json({ success: true, data: existingByPhone, message: 'Cliente existente por teléfono' });
+      return;
+    }
+    const codigo = `CLI-${Date.now()}`;
+    const nuevo = await Cliente.create({
+      codigo,
+      nombre: name,
+      numero_documento: dni,
+      tipo_documento: 'DNI',
+      tipo_cliente: 'NATURAL',
+      telefono: numero,
+      activo: true
+    });
+    res.status(201).json({ success: true, data: nuevo, message: 'Cliente creado' });
+  } catch (error) {
+    console.error('Error en registro ligero de cliente:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
