@@ -312,10 +312,23 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Obtener el cliente asociado a este usuario
+    const clienteUsuario = await ClienteUsuario.findOne({ where: { usuario_id: usuarioId } });
+    const clienteId = clienteUsuario?.cliente_id || null;
+
+    const whereClause: any = {};
+    // Mostrar pedidos del usuario y también los del mismo cliente (incluye pedidos creados por WhatsApp con usuario_id null)
+    if (clienteId) {
+      whereClause[Op.or] = [
+        { usuario_id: usuarioId },
+        { cliente_id: clienteId }
+      ];
+    } else {
+      whereClause.usuario_id = usuarioId;
+    }
+
     const pedidos = await Pedido.findAll({
-      where: {
-        usuario_id: usuarioId
-      },
+      where: whereClause,
       include: [
         {
           model: DetallePedido,

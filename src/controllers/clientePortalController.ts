@@ -322,13 +322,21 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
     res.json({
       success: true,
       data: {
+        // Formato esperado por el frontend del portal
         cliente: clienteUsuario.cliente,
-        resumen: {
-          total_compras: totalCompras,
-          total_gastado: Number(totalGastado).toFixed(2)
-        },
-        compras_por_mes: comprasPorMes,
-        productos_mas_comprados: productosMasComprados
+        totalCompras: totalCompras,
+        totalGastado: Number(totalGastado),
+        comprasPorMes: comprasPorMes.map((m: any) => ({
+          mes: m.mes,
+          cantidad: Number(m.cantidad),
+          total: Number(m.total)
+        })),
+        productosMasComprados: productosMasComprados.map((p: any) => ({
+          producto_id: p.producto_id,
+          total_cantidad: Number((p as any).get('total_cantidad') || 0),
+          total_gastado: Number((p as any).get('total_gastado') || 0),
+          producto: p.producto
+        }))
       }
     });
   } catch (error) {
