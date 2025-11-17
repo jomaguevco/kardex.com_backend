@@ -6,7 +6,7 @@ import notificacionService from '../services/notificacionService';
 
 export const getCompras = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = 1, limit = 10, search = '', fecha_inicio, fecha_fin, proveedor_id } = req.query;
+    const { page = 1, limit = 10, search = '', fecha_inicio, fecha_fin, proveedor_id, estado } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
     const whereClause: any = {};
@@ -22,10 +22,34 @@ export const getCompras = async (req: Request, res: Response): Promise<void> => 
       whereClause.fecha_compra = {
         [Op.between]: [fecha_inicio, fecha_fin]
       };
+    } else if (fecha_inicio) {
+      whereClause.fecha_compra = {
+        [Op.gte]: fecha_inicio
+      };
+    } else if (fecha_fin) {
+      whereClause.fecha_compra = {
+        [Op.lte]: fecha_fin
+      };
     }
 
     if (proveedor_id) {
       whereClause.proveedor_id = proveedor_id;
+    }
+
+    if (estado) {
+      // Mapear estados del frontend (minúsculas) a estados del backend (mayúsculas)
+      const estadoMap: { [key: string]: string } = {
+        'pendiente': 'PENDIENTE',
+        'completada': 'PROCESADA',
+        'procesada': 'PROCESADA',
+        'cancelada': 'ANULADA',
+        'anulada': 'ANULADA'
+      };
+      
+      const estadoNormalizado = estadoMap[estado.toString().toLowerCase()] || estado.toString().toUpperCase();
+      whereClause.estado = {
+        [Op.iLike]: estadoNormalizado
+      };
     }
 
     const { count, rows: compras } = await Compra.findAndCountAll({
