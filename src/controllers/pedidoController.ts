@@ -236,19 +236,26 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
  */
 export const getPedidosPendientes = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('getPedidosPendientes - Iniciando consulta');
     const { page = '1', limit = '10', estado } = req.query;
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
+    console.log('getPedidosPendientes - Parámetros:', { page, limit, estado, offset });
+
     // Construir filtro de estado
     const whereClause: any = {};
-    if (estado && estado !== 'TODOS') {
+    if (estado && estado !== 'TODOS' && estado !== 'ALL') {
       whereClause.estado = estado;
     }
+
+    console.log('getPedidosPendientes - whereClause:', whereClause);
 
     // Primero obtener el conteo total sin includes para evitar problemas con distinct
     const totalCount = await Pedido.count({
       where: whereClause
     });
+
+    console.log('getPedidosPendientes - Total count:', totalCount);
 
     // Luego obtener los pedidos con sus relaciones
     const pedidos = await Pedido.findAll({
@@ -264,6 +271,12 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
           model: Usuario,
           as: 'usuario',
           attributes: ['id', 'nombre_completo', 'email'],
+          required: false
+        },
+        {
+          model: Usuario,
+          as: 'aprobador',
+          attributes: ['id', 'nombre_completo'],
           required: false
         },
         {
@@ -286,6 +299,8 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       offset
     });
 
+    console.log('getPedidosPendientes - Pedidos encontrados:', pedidos.length);
+
     res.json({
       success: true,
       data: pedidos,
@@ -298,11 +313,23 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     });
   } catch (error) {
     console.error('Error al obtener pedidos pendientes:', error);
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error tipo:', typeof error);
+    console.error('Error es instancia de Error:', error instanceof Error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    if ((error as any)?.name) {
+      console.error('Error name:', (error as any).name);
+    }
+    if ((error as any)?.original) {
+      console.error('Error original:', (error as any).original);
+    }
     res.status(500).json({
       success: false,
       message: 'Error al obtener pedidos pendientes',
-      error: error instanceof Error ? error.message : 'Error desconocido'
+      error: error instanceof Error ? error.message : 'Error desconocido',
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 };
