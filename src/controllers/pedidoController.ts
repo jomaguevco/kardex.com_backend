@@ -259,40 +259,47 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
 
     // Luego obtener los pedidos con sus relaciones
     // Nota: Incluir Usuario dos veces puede causar problemas, así que lo hacemos en dos consultas separadas si es necesario
-    const pedidos = await Pedido.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Cliente,
-          as: 'cliente',
-          attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
-          required: false
-        },
-        {
-          model: Usuario,
-          as: 'usuario',
-          attributes: ['id', 'nombre_completo', 'email'],
-          required: false
-        },
-        {
-          model: DetallePedido,
-          as: 'detalles',
-          required: false,
-          attributes: ['id', 'pedido_id', 'producto_id', 'cantidad', 'precio_unitario', 'descuento', 'subtotal'],
-          include: [
-            {
-              model: Producto,
-              as: 'producto',
-              attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta'],
-              required: false
-            } as any
-          ]
-        }
-      ],
-      order: [['fecha_pedido', 'DESC']],
-      limit: parseInt(limit as string),
-      offset
-    });
+    let pedidos;
+    try {
+      pedidos = await Pedido.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
+            required: false
+          },
+          {
+            model: Usuario,
+            as: 'usuario',
+            attributes: ['id', 'nombre_completo', 'email'],
+            required: false
+          },
+          {
+            model: DetallePedido,
+            as: 'detalles',
+            required: false,
+            attributes: ['id', 'pedido_id', 'producto_id', 'cantidad', 'precio_unitario', 'descuento', 'subtotal'],
+            include: [
+              {
+                model: Producto,
+                as: 'producto',
+                attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta'],
+                required: false
+              } as any
+            ]
+          }
+        ],
+        order: [['fecha_pedido', 'DESC']],
+        limit: parseInt(limit as string),
+        offset
+      });
+      console.log('getPedidosPendientes - Query exitosa, pedidos:', pedidos.length);
+    } catch (queryError) {
+      console.error('getPedidosPendientes - Error en query:', queryError);
+      throw queryError;
+    }
 
     // Cargar aprobador por separado para evitar conflictos con la asociación múltiple
     const pedidosConAprobador = await Promise.all(
