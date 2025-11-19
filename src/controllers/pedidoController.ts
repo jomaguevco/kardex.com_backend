@@ -271,18 +271,13 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     try {
       console.log('getPedidosPendientes - Ejecutando query de pedidos básica (sin includes)');
       // Primero obtener SOLO los pedidos sin ningún include para evitar problemas
+      // NO especificar attributes para obtener todos los campos disponibles
       pedidosRaw = await Pedido.findAll({
         where: whereClause,
         order: [['fecha_pedido', 'DESC']],
         limit: parseInt(limit as string),
-        offset,
-        attributes: [
-          'id', 'cliente_id', 'usuario_id', 'numero_pedido', 'estado', 
-          'tipo_pedido', 'subtotal', 'descuento', 'impuesto', 'total',
-          'observaciones', 'fecha_pedido', 'aprobado_por', 'fecha_aprobacion',
-          'venta_id', 'motivo_rechazo', 'metodo_pago', 'fecha_pago', 
-          'comprobante_pago', 'fecha_envio', 'fecha_creacion', 'fecha_actualizacion'
-        ]
+        offset
+        // No especificar attributes para evitar problemas si falta algún campo
       });
       console.log('getPedidosPendientes - Query básica exitosa, pedidos encontrados:', pedidosRaw.length);
     } catch (queryError: any) {
