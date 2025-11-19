@@ -258,10 +258,12 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     console.log('getPedidosPendientes - Total count:', totalCount);
 
     // Luego obtener los pedidos con sus relaciones
-    // Nota: Incluir Usuario dos veces puede causar problemas, así que lo hacemos en dos consultas separadas si es necesario
-    let pedidos;
+    // Simplificar la consulta primero sin includes anidados para evitar problemas
+    let pedidosRaw;
     try {
-      pedidos = await Pedido.findAll({
+      console.log('getPedidosPendientes - Ejecutando query de pedidos básica');
+      // Primero obtener solo los pedidos sin includes anidados
+      pedidosRaw = await Pedido.findAll({
         where: whereClause,
         include: [
           {
@@ -275,12 +277,20 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
             as: 'usuario',
             attributes: ['id', 'nombre_completo', 'email'],
             required: false
-          },
-          {
-            model: DetallePedido,
-            as: 'detalles',
-            required: false,
-            attributes: ['id', 'pedido_id', 'producto_id', 'cantidad', 'precio_unitario', 'descuento', 'subtotal'],
+          }
+        ],
+        order: [['fecha_pedido', 'DESC']],
+        limit: parseInt(limit as string),
+        offset
+      });
+      console.log('getPedidosPendientes - Query básica exitosa, pedidos encontrados:', pedidosRaw.length);
+      
+      // Ahora cargar detalles por separado para evitar problemas con includes anidados
+      console.log('getPedidosPendientes - Cargando detalles de pedidos');
+      for (const pedido of pedidosRaw) {
+        try {
+          const detalles = await DetallePedido.findAll({
+            where: { pedido_id: pedido.id },
             include: [
               {
                 model: Producto,
@@ -289,38 +299,62 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
                 required: false
               } as any
             ]
-          }
-        ],
-        order: [['fecha_pedido', 'DESC']],
-        limit: parseInt(limit as string),
-        offset
-      });
-      console.log('getPedidosPendientes - Query exitosa, pedidos:', pedidos.length);
-    } catch (queryError) {
+          });
+          (pedido as any).detalles = detalles;
+        } catch (detalleError: any) {
+          console.error('Error al cargar detalles para pedido', pedido.id, ':', detalleError?.message);
+          (pedido as any).detalles = [];
+        }
+      }
+    } catch (queryError: any) {
       console.error('getPedidosPendientes - Error en query:', queryError);
+      console.error('Error message:', queryError?.message);
+      console.error('Error name:', queryError?.name);
+      console.error('Error original:', queryError?.original);
+      if (queryError?.sql) {
+        console.error('SQL:', queryError.sql);
+      }
       throw queryError;
     }
 
-    // Cargar aprobador por separado para evitar conflictos con la asociación múltiple
+    // Serializar los pedidos y cargar aprobador por separado para evitar conflictos
+    console.log('getPedidosPendientes - Serializando pedidos y cargando aprobador');
     const pedidosConAprobador = await Promise.all(
-      pedidos.map(async (pedido) => {
-        const pedidoJson = pedido.toJSON() as any;
-        if (pedido.aprobado_por) {
-          try {
-            const aprobador = await Usuario.findByPk(pedido.aprobado_por, {
-              attributes: ['id', 'nombre_completo']
-            });
-            pedidoJson.aprobador = aprobador ? aprobador.toJSON() : null;
-          } catch (error) {
-            console.error('Error al cargar aprobador:', error);
+      pedidosRaw.map(async (pedido) => {
+        try {
+          // Convertir a JSON primero
+          const pedidoJson = pedido.toJSON() as any;
+          
+          // Cargar aprobador si existe
+          if (pedidoJson.aprobado_por) {
+            try {
+              const aprobador = await Usuario.findByPk(pedidoJson.aprobado_por, {
+                attributes: ['id', 'nombre_completo']
+              });
+              pedidoJson.aprobador = aprobador ? aprobador.toJSON() : null;
+            } catch (aprobadorError: any) {
+              console.error('Error al cargar aprobador para pedido', pedidoJson.id, ':', aprobadorError?.message);
+              pedidoJson.aprobador = null;
+            }
+          } else {
             pedidoJson.aprobador = null;
           }
-        } else {
-          pedidoJson.aprobador = null;
+          
+          return pedidoJson;
+        } catch (serializeError: any) {
+          console.error('Error al serializar pedido:', serializeError?.message);
+          // Intentar devolver al menos los datos básicos
+          return {
+            id: pedido.id,
+            numero_pedido: pedido.numero_pedido,
+            estado: pedido.estado,
+            error: 'Error al serializar pedido'
+          };
         }
-        return pedidoJson;
       })
     );
+    
+    console.log('getPedidosPendientes - Pedidos serializados:', pedidosConAprobador.length);
 
     console.log('getPedidosPendientes - Pedidos encontrados:', pedidosConAprobador.length);
 
