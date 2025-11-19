@@ -142,6 +142,14 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
     const numeroPedido = await generarNumeroPedido();
     const estadoInicial = tipo_pedido === 'COMPRA_DIRECTA' ? 'APROBADO' : 'PENDIENTE';
 
+    console.log('crearPedido - Creando pedido:', {
+      cliente_id: clienteUsuario.cliente_id,
+      usuario_id: usuarioId,
+      numero_pedido: numeroPedido,
+      tipo_pedido,
+      estado: estadoInicial
+    });
+
     const pedido = await Pedido.create({
       cliente_id: clienteUsuario.cliente_id,
       usuario_id: usuarioId,
@@ -155,6 +163,8 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
       observaciones,
       fecha_pedido: new Date()
     }, { transaction });
+
+    console.log('crearPedido - Pedido creado con ID:', pedido.id);
 
     // Crear detalles del pedido
     for (const item of detallesValidados) {
@@ -316,16 +326,49 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
     const clienteUsuario = await ClienteUsuario.findOne({ where: { usuario_id: usuarioId } });
     const clienteId = clienteUsuario?.cliente_id || null;
 
+    console.log('getMisPedidos - usuarioId:', usuarioId, 'clienteId:', clienteId);
+
     const whereClause: any = {};
     // Mostrar pedidos del usuario y también los del mismo cliente (incluye pedidos creados por WhatsApp con usuario_id null)
     if (clienteId) {
+      // Buscar por usuario_id O cliente_id (para incluir pedidos de WhatsApp con usuario_id null)
       whereClause[Op.or] = [
         { usuario_id: usuarioId },
         { cliente_id: clienteId }
       ];
     } else {
+      // Si no hay cliente asociado, solo buscar por usuario_id
       whereClause.usuario_id = usuarioId;
     }
+
+    console.log('getMisPedidos - whereClause:', JSON.stringify(whereClause, null, 2));
+    
+    // Verificar también directamente por cliente_id si existe
+    if (clienteId) {
+      const pedidosPorCliente = await Pedido.count({
+        where: { cliente_id: clienteId }
+      });
+      console.log('getMisPedidos - Total pedidos por cliente_id:', pedidosPorCliente);
+      
+      const pedidosPorUsuario = await Pedido.count({
+        where: { usuario_id: usuarioId }
+      });
+      console.log('getMisPedidos - Total pedidos por usuario_id:', pedidosPorUsuario);
+    }
+
+    // Primero verificar si hay pedidos sin filtros para debug
+    const todosLosPedidos = await Pedido.findAll({
+      limit: 5,
+      order: [['fecha_pedido', 'DESC']],
+      attributes: ['id', 'numero_pedido', 'cliente_id', 'usuario_id', 'estado', 'fecha_pedido']
+    });
+    console.log('getMisPedidos - Últimos 5 pedidos en BD:', todosLosPedidos.map(p => ({
+      id: p.id,
+      numero: p.numero_pedido,
+      cliente_id: p.cliente_id,
+      usuario_id: p.usuario_id,
+      estado: p.estado
+    })));
 
     const pedidos = await Pedido.findAll({
       where: whereClause,
@@ -337,13 +380,24 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'nombre', 'codigo', 'imagen_url']
+              attributes: ['id', 'nombre', 'codigo_interno', 'imagen_url']
             } as any
           ]
         }
       ],
       order: [['fecha_pedido', 'DESC']]
     });
+
+    console.log('getMisPedidos - pedidos encontrados:', pedidos.length);
+    if (pedidos.length > 0) {
+      console.log('getMisPedidos - Primer pedido:', {
+        id: pedidos[0].id,
+        numero: pedidos[0].numero_pedido,
+        cliente_id: pedidos[0].cliente_id,
+        usuario_id: pedidos[0].usuario_id,
+        estado: pedidos[0].estado
+      });
+    }
 
     res.json({
       success: true,
@@ -370,6 +424,8 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
     const usuarioAprobadorId: number | undefined = (req as any).user?.id;
     const { metodo_pago = 'EFECTIVO' } = req.body;
 
+    console.log('aprobarPedido - Request:', { id, usuarioAprobadorId, metodo_pago });
+
     if (!usuarioAprobadorId) {
       await transaction.rollback();
       res.status(401).json({
@@ -386,7 +442,17 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       include: [
         {
           model: DetallePedido,
-          as: 'detalles'
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            } as any
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente'
         }
       ],
       transaction
@@ -400,6 +466,14 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       });
       return;
     }
+
+    console.log('aprobarPedido - Pedido encontrado:', {
+      id: pedido.id,
+      numero: pedido.numero_pedido,
+      estado: pedido.estado,
+      cliente_id: pedido.cliente_id,
+      detalles_count: pedido.detalles?.length || 0
+    });
 
     if (pedido.estado !== 'PENDIENTE') {
       await transaction.rollback();
@@ -502,6 +576,12 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
 
     await transaction.commit();
 
+    console.log('aprobarPedido - Pedido aprobado y venta generada exitosamente:', {
+      pedido_id: pedido.id,
+      venta_id: venta.id,
+      numero_factura: venta.numero_factura
+    });
+
     res.json({
       success: true,
       message: 'Pedido aprobado y venta generada correctamente',
@@ -513,6 +593,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
   } catch (error) {
     await transaction.rollback();
     console.error('Error al aprobar pedido:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({
       success: false,
       message: 'Error al aprobar pedido',
@@ -530,7 +611,17 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
     const { motivo_rechazo } = req.body;
     const usuarioId: number | undefined = (req as any).user?.id;
 
-    if (!motivo_rechazo) {
+    console.log('rechazarPedido - Request:', { id, motivo_rechazo, usuarioId });
+
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    if (!motivo_rechazo || !motivo_rechazo.trim()) {
       res.status(400).json({
         success: false,
         message: 'Debe proporcionar un motivo de rechazo'
@@ -538,7 +629,24 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const pedido = await Pedido.findByPk(id);
+    const pedido = await Pedido.findByPk(id, {
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            } as any
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente'
+        }
+      ]
+    });
 
     if (!pedido) {
       res.status(404).json({
@@ -547,6 +655,12 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
       });
       return;
     }
+
+    console.log('rechazarPedido - Pedido encontrado:', {
+      id: pedido.id,
+      numero: pedido.numero_pedido,
+      estado: pedido.estado
+    });
 
     if (pedido.estado !== 'PENDIENTE') {
       res.status(400).json({
@@ -558,10 +672,12 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
 
     await pedido.update({
       estado: 'RECHAZADO',
-      motivo_rechazo,
-      ...(usuarioId && { aprobado_por: usuarioId }),
+      motivo_rechazo: motivo_rechazo.trim(),
+      aprobado_por: usuarioId,
       fecha_aprobacion: new Date()
     });
+
+    console.log('rechazarPedido - Pedido actualizado exitosamente');
 
     // Notificar al cliente (solo si tiene usuario_id)
     if (pedido.usuario_id) {
