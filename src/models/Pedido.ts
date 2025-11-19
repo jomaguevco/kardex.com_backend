@@ -6,7 +6,7 @@ interface PedidoAttributes {
   cliente_id: number;
   usuario_id: number | null;
   numero_pedido: string;
-  estado: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
+  estado: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PAGADO' | 'PROCESADO' | 'EN_CAMINO' | 'CANCELADO' | 'RECHAZADO';
   tipo_pedido: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
   subtotal: number;
   descuento: number;
@@ -18,18 +18,22 @@ interface PedidoAttributes {
   fecha_aprobacion?: Date;
   venta_id?: number;
   motivo_rechazo?: string;
+  metodo_pago?: string;
+  fecha_pago?: Date;
+  comprobante_pago?: string;
+  fecha_envio?: Date;
   fecha_creacion?: Date;
   fecha_actualizacion?: Date;
 }
 
-interface PedidoCreationAttributes extends Optional<PedidoAttributes, 'id' | 'descuento' | 'impuesto' | 'observaciones' | 'aprobado_por' | 'fecha_aprobacion' | 'venta_id' | 'motivo_rechazo' | 'fecha_creacion' | 'fecha_actualizacion'> {}
+interface PedidoCreationAttributes extends Optional<PedidoAttributes, 'id' | 'descuento' | 'impuesto' | 'observaciones' | 'aprobado_por' | 'fecha_aprobacion' | 'venta_id' | 'motivo_rechazo' | 'metodo_pago' | 'fecha_pago' | 'comprobante_pago' | 'fecha_envio' | 'fecha_creacion' | 'fecha_actualizacion'> {}
 
 class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implements PedidoAttributes {
   public id!: number;
   public cliente_id!: number;
   public usuario_id!: number | null;
   public numero_pedido!: string;
-  public estado!: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PROCESADO' | 'CANCELADO' | 'RECHAZADO';
+  public estado!: 'PENDIENTE' | 'EN_PROCESO' | 'APROBADO' | 'PAGADO' | 'PROCESADO' | 'EN_CAMINO' | 'CANCELADO' | 'RECHAZADO';
   public tipo_pedido!: 'PEDIDO_APROBACION' | 'COMPRA_DIRECTA';
   public subtotal!: number;
   public descuento!: number;
@@ -41,6 +45,10 @@ class Pedido extends Model<PedidoAttributes, PedidoCreationAttributes> implement
   public fecha_aprobacion?: Date;
   public venta_id?: number;
   public motivo_rechazo?: string;
+  public metodo_pago?: string;
+  public fecha_pago?: Date;
+  public comprobante_pago?: string;
+  public fecha_envio?: Date;
   public readonly fecha_creacion!: Date;
   public readonly fecha_actualizacion!: Date;
 
@@ -82,7 +90,7 @@ Pedido.init(
       unique: true
     },
     estado: {
-      type: DataTypes.ENUM('PENDIENTE', 'EN_PROCESO', 'APROBADO', 'PROCESADO', 'CANCELADO', 'RECHAZADO'),
+      type: DataTypes.ENUM('PENDIENTE', 'EN_PROCESO', 'APROBADO', 'PAGADO', 'PROCESADO', 'EN_CAMINO', 'CANCELADO', 'RECHAZADO'),
       allowNull: false,
       defaultValue: 'PENDIENTE'
     },
@@ -146,6 +154,26 @@ Pedido.init(
     motivo_rechazo: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    metodo_pago: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      comment: 'Método de pago: EFECTIVO, TARJETA, TRANSFERENCIA, YAPE, PLIN'
+    },
+    fecha_pago: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Fecha en que se realizó el pago'
+    },
+    comprobante_pago: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'URL o ruta del comprobante de pago (imagen)'
+    },
+    fecha_envio: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Fecha en que se procesó el envío del pedido'
     }
   },
   {

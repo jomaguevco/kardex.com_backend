@@ -417,17 +417,13 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
  * Aprobar pedido y convertir en venta (Vendedor/Admin)
  */
 export const aprobarPedido = async (req: Request, res: Response): Promise<void> => {
-  const transaction = await sequelize.transaction();
-  
   try {
     const { id } = req.params;
     const usuarioAprobadorId: number | undefined = (req as any).user?.id;
-    const { metodo_pago = 'EFECTIVO' } = req.body;
 
-    console.log('aprobarPedido - Request:', { id, usuarioAprobadorId, metodo_pago });
+    console.log('aprobarPedido - Request:', { id, usuarioAprobadorId });
 
     if (!usuarioAprobadorId) {
-      await transaction.rollback();
       res.status(401).json({
         success: false,
         message: 'No autenticado'
@@ -454,12 +450,10 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
           model: Cliente,
           as: 'cliente'
         }
-      ],
-      transaction
+      ]
     });
 
     if (!pedido) {
-      await transaction.rollback();
       res.status(404).json({
         success: false,
         message: 'Pedido no encontrado'
@@ -476,7 +470,6 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
     });
 
     if (pedido.estado !== 'PENDIENTE') {
-      await transaction.rollback();
       res.status(400).json({
         success: false,
         message: `El pedido ya está ${pedido.estado.toLowerCase()}`
@@ -484,114 +477,63 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Generar número de factura para la venta
-    const fecha = new Date();
-    const año = fecha.getFullYear();
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    
-    const ultimaVenta = await Venta.findOne({
-      where: {
-        numero_factura: {
-          [Op.like]: `F001-${año}${mes}%`
-        }
-      } as any,
-      order: [['id', 'DESC']],
-      transaction
+    // Solo cambiar estado a APROBADO (NO crear venta ni descontar stock)
+    // La creación de venta y descuento de stock se hace en procesarEnvio
+    await pedido.update({
+      estado: 'APROBADO',
+      aprobado_por: usuarioId,
+      fecha_aprobacion: new Date()
     });
 
-    let correlativo = 1;
-    if (ultimaVenta && ultimaVenta.numero_factura) {
-      const partes = ultimaVenta.numero_factura.split('-');
-      correlativo = parseInt(partes[2]) + 1;
-    }
-
-    const numeroFactura = `F001-${año}${mes}${String(correlativo).padStart(6, '0')}`;
-
-    // Crear venta a partir del pedido
-    const venta = await Venta.create({
-      cliente_id: pedido.cliente_id,
-      usuario_id: usuarioId,
-      numero_factura: numeroFactura,
-      fecha_venta: new Date(),
-      subtotal: pedido.subtotal,
-      descuento: pedido.descuento,
-      impuestos: pedido.impuesto,
-      total: pedido.total,
-      estado: 'PROCESADA',
-      observaciones: `Generado desde pedido ${pedido.numero_pedido}`
-    }, { transaction });
-
-    // Copiar detalles del pedido a detalles de venta y actualizar stock
-    if (!pedido.detalles || pedido.detalles.length === 0) {
-      throw new Error('El pedido no tiene detalles');
-    }
-
-    for (const detalle of pedido.detalles) {
-      await DetalleVenta.create({
-        venta_id: venta.id,
-        producto_id: detalle.producto_id,
-        cantidad: detalle.cantidad,
-        precio_unitario: detalle.precio_unitario,
-        descuento: detalle.descuento,
-        subtotal: detalle.subtotal
-      }, { transaction });
-
-      // Actualizar stock del producto
-      const producto = await Producto.findByPk(detalle.producto_id, { transaction });
-      if (producto) {
-        const nuevoStock = producto.stock_actual - detalle.cantidad;
-        await producto.update({ stock_actual: nuevoStock }, { transaction });
-
-        // Verificar stock bajo
-        if (nuevoStock <= producto.stock_minimo) {
-          setTimeout(() => {
-            notificacionService.notificarStockBajo(
-              producto.id,
-              producto.nombre,
-              nuevoStock,
-              usuarioId
-            );
-          }, 100);
+    // Recargar el pedido actualizado con todas las relaciones
+    await pedido.reload({
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            } as any
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente'
         }
+      ]
+    });
+
+    // Notificar al cliente que el pedido fue aprobado y puede proceder al pago
+    if (pedido.usuario_id) {
+      try {
+        await notificacionService.crearNotificacion({
+          usuario_id: pedido.usuario_id,
+          tipo: 'SISTEMA',
+          titulo: '✅ Pedido aprobado',
+          mensaje: `Tu pedido ${pedido.numero_pedido} ha sido aprobado. Procede al pago para completar tu compra.`,
+          referencia_id: pedido.id,
+          referencia_tipo: 'pedido'
+        });
+      } catch (notifError) {
+        console.error('Error al crear notificación (no crítico):', notifError);
+        // No fallar la aprobación si falla la notificación
       }
     }
 
-    // Actualizar estado del pedido
-    await pedido.update({
-      estado: 'PROCESADO',
-      aprobado_por: usuarioId,
-      fecha_aprobacion: new Date(),
-      venta_id: venta.id
-    }, { transaction });
-
-    // Notificar al cliente (solo si tiene usuario_id)
-    if (pedido.usuario_id) {
-      await notificacionService.notificarVenta(
-        venta.id,
-        numeroFactura,
-        venta.total,
-        pedido.usuario_id
-      );
-    }
-
-    await transaction.commit();
-
-    console.log('aprobarPedido - Pedido aprobado y venta generada exitosamente:', {
+    console.log('aprobarPedido - Pedido aprobado exitosamente:', {
       pedido_id: pedido.id,
-      venta_id: venta.id,
-      numero_factura: venta.numero_factura
+      numero_pedido: pedido.numero_pedido,
+      nuevo_estado: 'APROBADO'
     });
 
     res.json({
       success: true,
-      message: 'Pedido aprobado y venta generada correctamente',
-      data: {
-        pedido,
-        venta
-      }
+      message: 'Pedido aprobado correctamente. El cliente puede proceder al pago.',
+      data: pedido
     });
   } catch (error) {
-    await transaction.rollback();
     console.error('Error al aprobar pedido:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({
@@ -701,6 +643,336 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       success: false,
       message: 'Error al rechazar pedido',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Marcar pedido como pagado (Cliente)
+ */
+export const marcarComoPagado = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { metodo_pago, comprobante_pago } = req.body;
+    const usuarioId: number | undefined = (req as any).user?.id;
+
+    console.log('marcarComoPagado - Request:', { id, metodo_pago, usuarioId });
+
+    if (!usuarioId) {
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    if (!metodo_pago) {
+      res.status(400).json({
+        success: false,
+        message: 'Debe proporcionar un método de pago'
+      });
+      return;
+    }
+
+    // Validar método de pago
+    const metodosValidos = ['EFECTIVO', 'TARJETA', 'TRANSFERENCIA', 'YAPE', 'PLIN'];
+    if (!metodosValidos.includes(metodo_pago.toUpperCase())) {
+      res.status(400).json({
+        success: false,
+        message: `Método de pago inválido. Métodos válidos: ${metodosValidos.join(', ')}`
+      });
+      return;
+    }
+
+    // Buscar el pedido
+    const pedido = await Pedido.findByPk(id, {
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente'
+        }
+      ]
+    });
+
+    if (!pedido) {
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    // Verificar que el pedido pertenece al usuario autenticado
+    // Puede ser por usuario_id (pedido directo del cliente) o por cliente_id (via ClienteUsuario)
+    if (pedido.usuario_id && pedido.usuario_id !== usuarioId) {
+      res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para marcar este pedido como pagado'
+      });
+      return;
+    }
+
+    // Si no tiene usuario_id, verificar por cliente_id
+    if (!pedido.usuario_id) {
+      const clienteUsuario = await ClienteUsuario.findOne({
+        where: { usuario_id: usuarioId }
+      });
+
+      if (!clienteUsuario || pedido.cliente_id !== clienteUsuario.cliente_id) {
+        res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para marcar este pedido como pagado'
+        });
+        return;
+      }
+    }
+
+    // Verificar que el pedido está en estado APROBADO
+    if (pedido.estado !== 'APROBADO') {
+      res.status(400).json({
+        success: false,
+        message: `Solo se pueden marcar como pagados pedidos en estado APROBADO. Estado actual: ${pedido.estado}`
+      });
+      return;
+    }
+
+    // Actualizar pedido con información de pago
+    await pedido.update({
+      estado: 'PAGADO',
+      metodo_pago: metodo_pago.toUpperCase(),
+      fecha_pago: new Date(),
+      comprobante_pago: comprobante_pago || null
+    });
+
+    console.log('marcarComoPagado - Pedido marcado como pagado exitosamente:', {
+      pedido_id: pedido.id,
+      numero_pedido: pedido.numero_pedido,
+      metodo_pago: metodo_pago.toUpperCase()
+    });
+
+    // Notificar a administradores/vendedores que el pedido fue pagado
+    await notificacionService.notificarAdministradores(
+      'SISTEMA',
+      '💰 Pedido pagado',
+      `El pedido ${pedido.numero_pedido} ha sido pagado por ${pedido.cliente?.nombre || 'Cliente'} usando ${metodo_pago.toUpperCase()}`,
+      pedido.id,
+      'pedido'
+    );
+
+    // Notificar al cliente que el pago fue registrado
+    if (pedido.usuario_id) {
+      await notificacionService.crearNotificacion({
+        usuario_id: pedido.usuario_id,
+        tipo: 'SISTEMA',
+        titulo: '✅ Pago registrado',
+        mensaje: `Tu pago para el pedido ${pedido.numero_pedido} ha sido registrado. Esperando procesamiento del envío.`,
+        referencia_id: pedido.id,
+        referencia_tipo: 'pedido'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Pedido marcado como pagado correctamente',
+      data: pedido
+    });
+  } catch (error) {
+    console.error('Error al marcar pedido como pagado:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al marcar pedido como pagado',
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Procesar envío de pedido - Crear venta y descontar stock (Vendedor/Admin)
+ */
+export const procesarEnvio = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const usuarioProcesadorId: number | undefined = (req as any).user?.id;
+
+    console.log('procesarEnvio - Request:', { id, usuarioProcesadorId });
+
+    if (!usuarioProcesadorId) {
+      await transaction.rollback();
+      res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+      return;
+    }
+
+    const usuarioId: number = usuarioProcesadorId;
+
+    const pedido = await Pedido.findByPk(id, {
+      include: [
+        {
+          model: DetallePedido,
+          as: 'detalles',
+          include: [
+            {
+              model: Producto,
+              as: 'producto'
+            } as any
+          ]
+        },
+        {
+          model: Cliente,
+          as: 'cliente'
+        }
+      ],
+      transaction
+    });
+
+    if (!pedido) {
+      await transaction.rollback();
+      res.status(404).json({
+        success: false,
+        message: 'Pedido no encontrado'
+      });
+      return;
+    }
+
+    console.log('procesarEnvio - Pedido encontrado:', {
+      id: pedido.id,
+      numero: pedido.numero_pedido,
+      estado: pedido.estado,
+      cliente_id: pedido.cliente_id,
+      detalles_count: pedido.detalles?.length || 0
+    });
+
+    // Verificar que el pedido está en estado PAGADO
+    if (pedido.estado !== 'PAGADO') {
+      await transaction.rollback();
+      res.status(400).json({
+        success: false,
+        message: `Solo se pueden procesar envíos de pedidos en estado PAGADO. Estado actual: ${pedido.estado}`
+      });
+      return;
+    }
+
+    // Generar número de factura para la venta
+    const fecha = new Date();
+    const año = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    
+    const ultimaVenta = await Venta.findOne({
+      where: {
+        numero_factura: {
+          [Op.like]: `F001-${año}${mes}%`
+        }
+      } as any,
+      order: [['id', 'DESC']],
+      transaction
+    });
+
+    let correlativo = 1;
+    if (ultimaVenta && ultimaVenta.numero_factura) {
+      const partes = ultimaVenta.numero_factura.split('-');
+      correlativo = parseInt(partes[2]) + 1;
+    }
+
+    const numeroFactura = `F001-${año}${mes}${String(correlativo).padStart(6, '0')}`;
+
+    // Crear venta a partir del pedido
+    const venta = await Venta.create({
+      cliente_id: pedido.cliente_id,
+      usuario_id: usuarioId,
+      numero_factura: numeroFactura,
+      fecha_venta: new Date(),
+      subtotal: pedido.subtotal,
+      descuento: pedido.descuento,
+      impuestos: pedido.impuesto,
+      total: pedido.total,
+      estado: 'PROCESADA',
+      observaciones: `Generado desde pedido ${pedido.numero_pedido}`
+    }, { transaction });
+
+    // Copiar detalles del pedido a detalles de venta y actualizar stock
+    if (!pedido.detalles || pedido.detalles.length === 0) {
+      throw new Error('El pedido no tiene detalles');
+    }
+
+    for (const detalle of pedido.detalles) {
+      await DetalleVenta.create({
+        venta_id: venta.id,
+        producto_id: detalle.producto_id,
+        cantidad: detalle.cantidad,
+        precio_unitario: detalle.precio_unitario,
+        descuento: detalle.descuento,
+        subtotal: detalle.subtotal
+      }, { transaction });
+
+      // Actualizar stock del producto
+      const producto = await Producto.findByPk(detalle.producto_id, { transaction });
+      if (producto) {
+        const nuevoStock = producto.stock_actual - detalle.cantidad;
+        await producto.update({ stock_actual: nuevoStock }, { transaction });
+
+        // Verificar stock bajo
+        if (nuevoStock <= producto.stock_minimo) {
+          setTimeout(() => {
+            notificacionService.notificarStockBajo(
+              producto.id,
+              producto.nombre,
+              nuevoStock,
+              usuarioId
+            );
+          }, 100);
+        }
+      }
+    }
+
+    // Actualizar estado del pedido: PROCESADO para admin, EN_CAMINO para cliente
+    // Usamos fecha_envio para indicar que está en camino
+    await pedido.update({
+      estado: 'PROCESADO',
+      fecha_envio: new Date(),
+      venta_id: venta.id
+    }, { transaction });
+
+    // Notificar al cliente que su pedido está en camino
+    if (pedido.usuario_id) {
+      await notificacionService.crearNotificacion({
+        usuario_id: pedido.usuario_id,
+        tipo: 'SISTEMA',
+        titulo: '🚚 Pedido en camino',
+        mensaje: `Tu pedido ${pedido.numero_pedido} ha sido procesado y está en camino. Factura: ${numeroFactura}`,
+        referencia_id: pedido.id,
+        referencia_tipo: 'pedido'
+      });
+    }
+
+    await transaction.commit();
+
+    console.log('procesarEnvio - Pedido procesado y venta generada exitosamente:', {
+      pedido_id: pedido.id,
+      venta_id: venta.id,
+      numero_factura: venta.numero_factura,
+      fecha_envio: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Pedido procesado y venta generada correctamente. El pedido está en camino.',
+      data: {
+        pedido,
+        venta
+      }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al procesar envío:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    res.status(500).json({
+      success: false,
+      message: 'Error al procesar envío',
       error: error instanceof Error ? error.message : 'Error desconocido'
     });
   }

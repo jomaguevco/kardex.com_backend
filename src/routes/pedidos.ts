@@ -13,6 +13,8 @@ import {
   getMisPedidos,
   aprobarPedido,
   rechazarPedido,
+  marcarComoPagado,
+  procesarEnvio,
   getDetallePedido
 } from '../controllers/pedidoController';
 
@@ -101,6 +103,20 @@ router.put('/:id/aprobar', authenticateToken, requireRole(['VENDEDOR', 'ADMINIST
  * @access  Private (VENDEDOR, ADMINISTRADOR)
  */
 router.put('/:id/rechazar', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), rechazarPedido);
+
+/**
+ * @route   POST /api/pedidos/:id/marcar-pagado
+ * @desc    Marcar pedido como pagado (Cliente)
+ * @access  Private (CLIENTE)
+ */
+router.post('/:id/marcar-pagado', authenticateToken, requireRole('CLIENTE'), marcarComoPagado);
+
+/**
+ * @route   POST /api/pedidos/:id/procesar-envio
+ * @desc    Procesar envío de pedido - Crear venta y descontar stock
+ * @access  Private (VENDEDOR, ADMINISTRADOR)
+ */
+router.post('/:id/procesar-envio', authenticateToken, requireRole(['VENDEDOR', 'ADMINISTRADOR']), procesarEnvio);
 
 export default router;
 
