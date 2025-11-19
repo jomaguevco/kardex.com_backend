@@ -237,10 +237,16 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
 export const getPedidosPendientes = async (req: Request, res: Response): Promise<void> => {
   try {
     console.log('getPedidosPendientes - Iniciando consulta');
-    const { page = '1', limit = '10', estado } = req.query;
-    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const userRole = (req as any).user?.rol;
+    const { page = '1', limit, estado } = req.query;
+    
+    // Si no se especifica límite, usar uno por defecto más alto para ADMINISTRADOR
+    const defaultLimit = userRole === 'ADMINISTRADOR' ? '1000' : '100';
+    const limitValue = limit ? limit as string : defaultLimit;
+    
+    const offset = (parseInt(page as string) - 1) * parseInt(limitValue);
 
-    console.log('getPedidosPendientes - Parámetros:', { page, limit, estado, offset });
+    console.log('getPedidosPendientes - Parámetros:', { page, limit: limitValue, estado, offset, userRole });
 
     // Construir filtro de estado
     const whereClause: any = {};
@@ -275,7 +281,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       pedidosRaw = await Pedido.findAll({
         where: whereClause,
         order: [['fecha_pedido', 'DESC']],
-        limit: parseInt(limit as string),
+        limit: parseInt(limitValue),
         offset
         // No especificar attributes para evitar problemas si falta algún campo
       });
@@ -297,7 +303,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
         pagination: {
           total: 0,
           page: parseInt(page as string),
-          limit: parseInt(limit as string),
+          limit: parseInt(limitValue),
           pages: 0
         }
       });
@@ -416,8 +422,8 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       pagination: {
         total: totalCount,
         page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        pages: Math.ceil(totalCount / parseInt(limit as string))
+        limit: parseInt(limitValue),
+        pages: Math.ceil(totalCount / parseInt(limitValue))
       }
     });
   } catch (error) {
@@ -437,6 +443,10 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       console.error('Error original code:', (error as any).original?.code);
     }
     // Devolver respuesta incluso con error para que el frontend pueda manejarlo
+    const userRoleError = (req as any).user?.rol;
+    const defaultLimitError = userRoleError === 'ADMINISTRADOR' ? '1000' : '100';
+    const limitValueError = req.query.limit ? req.query.limit as string : defaultLimitError;
+    
     res.status(500).json({
       success: false,
       message: 'Error al obtener pedidos pendientes',
@@ -445,7 +455,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       pagination: {
         total: 0,
         page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 10,
+        limit: parseInt(limitValueError),
         pages: 0
       },
       details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
