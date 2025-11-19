@@ -258,56 +258,27 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     console.log('getPedidosPendientes - Total count:', totalCount);
 
     // Luego obtener los pedidos con sus relaciones
-    // Simplificar la consulta primero sin includes anidados para evitar problemas
+    // Simplificar al máximo: primero obtener solo los pedidos básicos
     let pedidosRaw;
     try {
-      console.log('getPedidosPendientes - Ejecutando query de pedidos básica');
-      // Primero obtener solo los pedidos sin includes anidados
+      console.log('getPedidosPendientes - Ejecutando query de pedidos básica (sin includes)');
+      // Primero obtener SOLO los pedidos sin ningún include para evitar problemas
       pedidosRaw = await Pedido.findAll({
         where: whereClause,
-        include: [
-          {
-            model: Cliente,
-            as: 'cliente',
-            attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email'],
-            required: false
-          },
-          {
-            model: Usuario,
-            as: 'usuario',
-            attributes: ['id', 'nombre_completo', 'email'],
-            required: false
-          }
-        ],
         order: [['fecha_pedido', 'DESC']],
         limit: parseInt(limit as string),
-        offset
+        offset,
+        attributes: [
+          'id', 'cliente_id', 'usuario_id', 'numero_pedido', 'estado', 
+          'tipo_pedido', 'subtotal', 'descuento', 'impuesto', 'total',
+          'observaciones', 'fecha_pedido', 'aprobado_por', 'fecha_aprobacion',
+          'venta_id', 'motivo_rechazo', 'metodo_pago', 'fecha_pago', 
+          'comprobante_pago', 'fecha_envio', 'fecha_creacion', 'fecha_actualizacion'
+        ]
       });
       console.log('getPedidosPendientes - Query básica exitosa, pedidos encontrados:', pedidosRaw.length);
-      
-      // Ahora cargar detalles por separado para evitar problemas con includes anidados
-      console.log('getPedidosPendientes - Cargando detalles de pedidos');
-      for (const pedido of pedidosRaw) {
-        try {
-          const detalles = await DetallePedido.findAll({
-            where: { pedido_id: pedido.id },
-            include: [
-              {
-                model: Producto,
-                as: 'producto',
-                attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta'],
-                required: false
-              } as any
-            ]
-          });
-          (pedido as any).detalles = detalles;
-        } catch (detalleError: any) {
-          console.error('Error al cargar detalles para pedido', pedido.id, ':', detalleError?.message);
-          (pedido as any).detalles = [];
-        }
-      }
     } catch (queryError: any) {
-      console.error('getPedidosPendientes - Error en query:', queryError);
+      console.error('getPedidosPendientes - Error en query básica:', queryError);
       console.error('Error message:', queryError?.message);
       console.error('Error name:', queryError?.name);
       console.error('Error original:', queryError?.original);
@@ -317,38 +288,100 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       throw queryError;
     }
 
-    // Serializar los pedidos y cargar aprobador por separado para evitar conflictos
-    console.log('getPedidosPendientes - Serializando pedidos y cargando aprobador');
+    // Ahora cargar todas las relaciones por separado
+    console.log('getPedidosPendientes - Cargando relaciones para', pedidosRaw.length, 'pedidos');
     const pedidosConAprobador = await Promise.all(
       pedidosRaw.map(async (pedido) => {
         try {
-          // Convertir a JSON primero
           const pedidoJson = pedido.toJSON() as any;
           
-          // Cargar aprobador si existe
-          if (pedidoJson.aprobado_por) {
+          // Cargar cliente
+          if (pedido.cliente_id) {
             try {
-              const aprobador = await Usuario.findByPk(pedidoJson.aprobado_por, {
+              const cliente = await Cliente.findByPk(pedido.cliente_id, {
+                attributes: ['id', 'nombre', 'numero_documento', 'telefono', 'email']
+              });
+              pedidoJson.cliente = cliente ? cliente.toJSON() : null;
+            } catch (error: any) {
+              console.error(`Error al cargar cliente ${pedido.cliente_id}:`, error?.message);
+              pedidoJson.cliente = null;
+            }
+          } else {
+            pedidoJson.cliente = null;
+          }
+          
+          // Cargar usuario
+          if (pedido.usuario_id) {
+            try {
+              const usuario = await Usuario.findByPk(pedido.usuario_id, {
+                attributes: ['id', 'nombre_completo', 'email']
+              });
+              pedidoJson.usuario = usuario ? usuario.toJSON() : null;
+            } catch (error: any) {
+              console.error(`Error al cargar usuario ${pedido.usuario_id}:`, error?.message);
+              pedidoJson.usuario = null;
+            }
+          } else {
+            pedidoJson.usuario = null;
+          }
+          
+          // Cargar aprobador
+          if (pedido.aprobado_por) {
+            try {
+              const aprobador = await Usuario.findByPk(pedido.aprobado_por, {
                 attributes: ['id', 'nombre_completo']
               });
               pedidoJson.aprobador = aprobador ? aprobador.toJSON() : null;
-            } catch (aprobadorError: any) {
-              console.error('Error al cargar aprobador para pedido', pedidoJson.id, ':', aprobadorError?.message);
+            } catch (error: any) {
+              console.error(`Error al cargar aprobador ${pedido.aprobado_por}:`, error?.message);
               pedidoJson.aprobador = null;
             }
           } else {
             pedidoJson.aprobador = null;
           }
           
+          // Cargar detalles con productos
+          try {
+            const detalles = await DetallePedido.findAll({
+              where: { pedido_id: pedido.id },
+              attributes: ['id', 'pedido_id', 'producto_id', 'cantidad', 'precio_unitario', 'descuento', 'subtotal']
+            });
+            
+            pedidoJson.detalles = await Promise.all(
+              detalles.map(async (detalle) => {
+                const detalleJson = detalle.toJSON() as any;
+                if (detalle.producto_id) {
+                  try {
+                    const producto = await Producto.findByPk(detalle.producto_id, {
+                      attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta']
+                    });
+                    detalleJson.producto = producto ? producto.toJSON() : null;
+                  } catch (error: any) {
+                    console.error(`Error al cargar producto ${detalle.producto_id}:`, error?.message);
+                    detalleJson.producto = null;
+                  }
+                } else {
+                  detalleJson.producto = null;
+                }
+                return detalleJson;
+              })
+            );
+          } catch (error: any) {
+            console.error(`Error al cargar detalles para pedido ${pedido.id}:`, error?.message);
+            pedidoJson.detalles = [];
+          }
+          
           return pedidoJson;
-        } catch (serializeError: any) {
-          console.error('Error al serializar pedido:', serializeError?.message);
-          // Intentar devolver al menos los datos básicos
+        } catch (error: any) {
+          console.error(`Error al procesar pedido ${pedido.id}:`, error?.message);
+          // Devolver al menos datos básicos
           return {
-            id: pedido.id,
-            numero_pedido: pedido.numero_pedido,
-            estado: pedido.estado,
-            error: 'Error al serializar pedido'
+            ...pedido.toJSON(),
+            cliente: null,
+            usuario: null,
+            aprobador: null,
+            detalles: [],
+            error: error?.message
           };
         }
       })
