@@ -251,11 +251,19 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     console.log('getPedidosPendientes - whereClause:', whereClause);
 
     // Primero obtener el conteo total sin includes para evitar problemas con distinct
-    const totalCount = await Pedido.count({
-      where: whereClause
-    });
-
-    console.log('getPedidosPendientes - Total count:', totalCount);
+    let totalCount = 0;
+    try {
+      totalCount = await Pedido.count({
+        where: whereClause
+      });
+      console.log('getPedidosPendientes - Total count:', totalCount);
+    } catch (countError: any) {
+      console.error('getPedidosPendientes - Error al contar pedidos:', countError);
+      console.error('Error message:', countError?.message);
+      console.error('Error original:', countError?.original);
+      // Continuar con count = 0 si hay error
+      totalCount = 0;
+    }
 
     // Luego obtener los pedidos con sus relaciones
     // Simplificar al máximo: primero obtener solo los pedidos básicos
@@ -402,11 +410,14 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     
     console.log('getPedidosPendientes - Pedidos serializados:', pedidosConAprobador.length);
 
-    console.log('getPedidosPendientes - Pedidos encontrados:', pedidosConAprobador.length);
+    console.log('getPedidosPendientes - Respondiendo con', pedidosConAprobador.length, 'pedidos');
+
+    // Asegurar que siempre devolvemos un array
+    const dataFinal = Array.isArray(pedidosConAprobador) ? pedidosConAprobador : [];
 
     res.json({
       success: true,
-      data: pedidosConAprobador,
+      data: dataFinal,
       pagination: {
         total: totalCount,
         page: parseInt(page as string),
@@ -427,12 +438,22 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     }
     if ((error as any)?.original) {
       console.error('Error original:', (error as any).original);
+      console.error('Error original message:', (error as any).original?.message);
+      console.error('Error original code:', (error as any).original?.code);
     }
+    // Devolver respuesta incluso con error para que el frontend pueda manejarlo
     res.status(500).json({
       success: false,
       message: 'Error al obtener pedidos pendientes',
       error: error instanceof Error ? error.message : 'Error desconocido',
-      details: error instanceof Error ? error.stack : undefined
+      data: [],
+      pagination: {
+        total: 0,
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10,
+        pages: 0
+      },
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
     });
   }
 };
