@@ -285,7 +285,20 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       if (queryError?.sql) {
         console.error('SQL:', queryError.sql);
       }
-      throw queryError;
+      // Si hay un error en la consulta básica, intentar devolver al menos un array vacío con error
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener pedidos',
+        error: queryError?.message || 'Error desconocido',
+        data: [],
+        pagination: {
+          total: 0,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          pages: 0
+        }
+      });
+      return;
     }
 
     // Ahora cargar todas las relaciones por separado
