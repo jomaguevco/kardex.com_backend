@@ -367,7 +367,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
   
   try {
     const { id } = req.params;
-    const usuarioAprobadorId = (req as any).user?.id;
+    const usuarioAprobadorId: number | undefined = (req as any).user?.id;
     const { metodo_pago = 'EFECTIVO' } = req.body;
 
     if (!usuarioAprobadorId) {
@@ -378,6 +378,9 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
       });
       return;
     }
+
+    // TypeScript ahora sabe que usuarioAprobadorId es number
+    const usuarioId: number = usuarioAprobadorId;
 
     const pedido = await Pedido.findByPk(id, {
       include: [
@@ -433,7 +436,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
     // Crear venta a partir del pedido
     const venta = await Venta.create({
       cliente_id: pedido.cliente_id,
-      usuario_id: usuarioAprobadorId,
+      usuario_id: usuarioId,
       numero_factura: numeroFactura,
       fecha_venta: new Date(),
       subtotal: pedido.subtotal,
@@ -472,7 +475,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
               producto.id,
               producto.nombre,
               nuevoStock,
-              usuarioAprobadorId
+              usuarioId
             );
           }, 100);
         }
@@ -482,7 +485,7 @@ export const aprobarPedido = async (req: Request, res: Response): Promise<void> 
     // Actualizar estado del pedido
     await pedido.update({
       estado: 'PROCESADO',
-      aprobado_por: usuarioAprobadorId,
+      aprobado_por: usuarioId,
       fecha_aprobacion: new Date(),
       venta_id: venta.id
     }, { transaction });
@@ -525,7 +528,7 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const { motivo_rechazo } = req.body;
-    const usuarioId = (req as any).user?.id;
+    const usuarioId: number | undefined = (req as any).user?.id;
 
     if (!motivo_rechazo) {
       res.status(400).json({
@@ -556,7 +559,7 @@ export const rechazarPedido = async (req: Request, res: Response): Promise<void>
     await pedido.update({
       estado: 'RECHAZADO',
       motivo_rechazo,
-      aprobado_por: usuarioId,
+      ...(usuarioId && { aprobado_por: usuarioId }),
       fecha_aprobacion: new Date()
     });
 

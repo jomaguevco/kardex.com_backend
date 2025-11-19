@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Cliente, Venta } from '../models';
 import { Op } from 'sequelize';
+import { AuthRequest } from '../middleware/auth';
 
 export const getClientes = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -335,8 +336,22 @@ export const linkPhoneToCliente = async (req: Request, res: Response): Promise<v
 /**
  * Registro ligero de cliente (nombre, dni, phone)
  */
-export const registerClienteLite = async (req: Request, res: Response): Promise<void> => {
+export const registerClienteLite = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Verificar token especial para chatbot (si no hay usuario autenticado)
+    if (!req.user) {
+      const chatToken = req.headers['x-chatbot-token'] || req.body.token;
+      const expectedToken = process.env.CHATBOT_API_TOKEN;
+
+      if (expectedToken && chatToken !== expectedToken) {
+        res.status(401).json({
+          success: false,
+          message: 'Token inválido para chatbot'
+        });
+        return;
+      }
+    }
+
     const { name, dni, phone } = req.body as { name: string; dni: string; phone: string };
     if (!name || !dni || !phone) {
       res.status(400).json({ success: false, message: 'name, dni y phone son requeridos' });

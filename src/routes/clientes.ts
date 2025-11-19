@@ -59,7 +59,16 @@ router.post('/', authenticateToken, validate(createClienteSchema), createCliente
 router.put('/:id', authenticateToken, validate(updateClienteSchema), updateCliente);
 router.delete('/:id', authenticateToken, deleteCliente);
 router.post('/link-phone', authenticateToken, validate(linkPhoneSchema), linkPhoneToCliente);
-router.post('/register-lite', authenticateToken, validate(registerLiteSchema), registerClienteLite);
+// Endpoint para registro ligero - acepta tanto token de usuario como token de chatbot
+router.post('/register-lite', (req, res, next) => {
+  // Si hay token de usuario, validar con authenticateToken
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authenticateToken(req, res, next);
+  }
+  // Si no, continuar y verificar token de chatbot en el controlador
+  next();
+}, validate(registerLiteSchema), registerClienteLite);
 
 export default router;
 
