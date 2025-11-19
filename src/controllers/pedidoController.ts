@@ -258,6 +258,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
     console.log('getPedidosPendientes - Total count:', totalCount);
 
     // Luego obtener los pedidos con sus relaciones
+    // Nota: Incluir Usuario dos veces puede causar problemas, así que lo hacemos en dos consultas separadas si es necesario
     const pedidos = await Pedido.findAll({
       where: whereClause,
       include: [
@@ -274,12 +275,6 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
           required: false
         },
         {
-          model: Usuario,
-          as: 'aprobador',
-          attributes: ['id', 'nombre_completo'],
-          required: false
-        },
-        {
           model: DetallePedido,
           as: 'detalles',
           required: false,
@@ -288,7 +283,7 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
             {
               model: Producto,
               as: 'producto',
-              attributes: ['id', 'nombre', 'codigo_interno', 'codigo_barras', 'precio_venta'],
+              attributes: ['id', 'nombre', 'codigo_interno', 'precio_venta'],
               required: false
             } as any
           ]
@@ -299,11 +294,32 @@ export const getPedidosPendientes = async (req: Request, res: Response): Promise
       offset
     });
 
-    console.log('getPedidosPendientes - Pedidos encontrados:', pedidos.length);
+    // Cargar aprobador por separado para evitar conflictos con la asociación múltiple
+    const pedidosConAprobador = await Promise.all(
+      pedidos.map(async (pedido) => {
+        const pedidoJson = pedido.toJSON() as any;
+        if (pedido.aprobado_por) {
+          try {
+            const aprobador = await Usuario.findByPk(pedido.aprobado_por, {
+              attributes: ['id', 'nombre_completo']
+            });
+            pedidoJson.aprobador = aprobador ? aprobador.toJSON() : null;
+          } catch (error) {
+            console.error('Error al cargar aprobador:', error);
+            pedidoJson.aprobador = null;
+          }
+        } else {
+          pedidoJson.aprobador = null;
+        }
+        return pedidoJson;
+      })
+    );
+
+    console.log('getPedidosPendientes - Pedidos encontrados:', pedidosConAprobador.length);
 
     res.json({
       success: true,
-      data: pedidos,
+      data: pedidosConAprobador,
       pagination: {
         total: totalCount,
         page: parseInt(page as string),
