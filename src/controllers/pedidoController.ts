@@ -196,33 +196,76 @@ export const crearPedido = async (req: Request, res: Response): Promise<void> =>
 
     await transaction.commit();
 
-    // Cargar el pedido completo con relaciones
-    const pedidoCompleto = await Pedido.findByPk(pedido.id, {
-      include: [
-        {
-          model: DetallePedido,
-          as: 'detalles',
-          include: [
-            {
-              model: Producto,
-              as: 'producto'
-            }
-          ]
-        },
-        {
-          model: Cliente,
-          as: 'cliente'
-        }
-      ]
-    });
+    // Código post-commit: cargar el pedido completo con relaciones
+    // Si hay error aquí, el pedido ya está guardado en BD, así que no hacemos rollback
+    try {
+      const pedidoCompleto = await Pedido.findByPk(pedido.id, {
+        attributes: [
+          'id',
+          'cliente_id',
+          'usuario_id',
+          'numero_pedido',
+          'estado',
+          'tipo_pedido',
+          'subtotal',
+          'descuento',
+          'impuesto',
+          'total',
+          'observaciones',
+          'fecha_pedido',
+          'aprobado_por',
+          'fecha_aprobacion',
+          'venta_id',
+          'motivo_rechazo',
+          'fecha_creacion',
+          'fecha_actualizacion'
+          // Excluimos metodo_pago, fecha_pago, comprobante_pago, fecha_envio si no existen en BD
+        ],
+        include: [
+          {
+            model: DetallePedido,
+            as: 'detalles',
+            include: [
+              {
+                model: Producto,
+                as: 'producto'
+              }
+            ]
+          },
+          {
+            model: Cliente,
+            as: 'cliente'
+          }
+        ]
+      });
 
-    res.status(201).json({
-      success: true,
-      message: `Pedido ${tipo_pedido === 'COMPRA_DIRECTA' ? 'procesado' : 'creado'} correctamente`,
-      data: pedidoCompleto
-    });
+      res.status(201).json({
+        success: true,
+        message: `Pedido ${tipo_pedido === 'COMPRA_DIRECTA' ? 'procesado' : 'creado'} correctamente`,
+        data: pedidoCompleto
+      });
+    } catch (postCommitError) {
+      // Error post-commit: el pedido ya está guardado, solo logueamos y devolvemos datos básicos
+      console.error('Error al cargar pedido completo post-commit:', postCommitError);
+      res.status(201).json({
+        success: true,
+        message: `Pedido ${tipo_pedido === 'COMPRA_DIRECTA' ? 'procesado' : 'creado'} correctamente`,
+        data: pedido.toJSON(),
+        warning: 'El pedido se creó exitosamente pero hubo un error al cargar las relaciones completas'
+      });
+    }
   } catch (error) {
-    await transaction.rollback();
+    // Error pre-commit: verificar estado de transacción antes de rollback
+    const transactionFinished = (transaction as any).finished;
+    if (!transactionFinished || transactionFinished !== 'commit') {
+      try {
+        await transaction.rollback();
+      } catch (rollbackError: any) {
+        // Si el rollback falla, solo logueamos pero no detenemos el flujo
+        console.error('Error al hacer rollback (la transacción puede ya estar finalizada):', rollbackError?.message);
+      }
+    }
+    
     console.error('Error al crear pedido:', error);
     res.status(500).json({
       success: false,
