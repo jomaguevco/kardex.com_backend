@@ -310,11 +310,11 @@ export const getEstadoCuenta = async (req: Request, res: Response): Promise<void
       ],
       attributes: [
         'producto_id',
-        [sequelize.fn('SUM', sequelize.col('cantidad')), 'total_cantidad'],
-        [sequelize.fn('SUM', sequelize.col('subtotal')), 'total_gastado']
+        [sequelize.fn('SUM', sequelize.col('DetalleVenta.cantidad')), 'total_cantidad'],
+        [sequelize.fn('SUM', sequelize.col('DetalleVenta.subtotal')), 'total_gastado']
       ],
       group: ['producto_id'],
-      order: [[sequelize.fn('SUM', sequelize.col('cantidad')), 'DESC']],
+      order: [[sequelize.fn('SUM', sequelize.col('DetalleVenta.cantidad')), 'DESC']],
       limit: 10,
       raw: false
     });

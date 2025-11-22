@@ -21,6 +21,7 @@ const generarNumeroPedido = async (): Promise<string> => {
         [Op.like]: `PED-${año}${mes}%`
       }
     } as any,
+    attributes: ['id', 'numero_pedido'], // Solo seleccionar campos que existen en la BD
     order: [['id', 'DESC']]
   });
 
@@ -548,6 +549,27 @@ export const getMisPedidos = async (req: Request, res: Response): Promise<void> 
 
     const pedidos = await Pedido.findAll({
       where: whereClause,
+      attributes: [
+        'id',
+        'cliente_id',
+        'usuario_id',
+        'numero_pedido',
+        'estado',
+        'tipo_pedido',
+        'subtotal',
+        'descuento',
+        'impuesto',
+        'total',
+        'observaciones',
+        'fecha_pedido',
+        'aprobado_por',
+        'fecha_aprobacion',
+        'venta_id',
+        'motivo_rechazo',
+        'fecha_creacion',
+        'fecha_actualizacion'
+        // Excluimos metodo_pago, fecha_pago, comprobante_pago, fecha_envio si no existen en BD
+      ],
       include: [
         {
           model: DetallePedido,
